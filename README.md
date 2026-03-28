@@ -1,4 +1,4 @@
-CONFLICT_TEST_LINE
+CONFLICT_TEST_LINE_MAIN
 # Resource Booking Management System
 
 **FastAPI** REST API for managing organizational **resources** (rooms, equipment, etc.) and **bookings** against those resources. Data is persisted as **JSON files** under `app/data/`.
