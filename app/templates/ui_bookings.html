@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Bookings — RBMS{% endblock %}
+{% block tagline %}Create, edit, and delete bookings.{% endblock %}
+{% block content %}
+
+<section class="form-section" aria-labelledby="new-booking-heading">
+  <h2 id="new-booking-heading">New booking</h2>
+  {% if resource_options %}
+  <form method="post" action="/ui/bookings" class="stacked-form">
+    <label>Resource
+      <select name="resource_id" required>
+        <option value="" disabled selected>Choose a resource…</option>
+        {% for r in resource_options %}
+        <option value="{{ r.id }}">{{ r.name }} — {{ r.type }} ({{ r.id }})</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>User name <input type="text" name="user_name" required></label>
+    <label>Start time <input type="text" name="start_time" required placeholder="2026-04-02T09:00:00"></label>
+    <label>End time <input type="text" name="end_time" required placeholder="2026-04-02T10:00:00"></label>
+    <label>Purpose <input type="text" name="purpose" required placeholder="Team meeting"></label>
+    <button type="submit" class="btn btn-primary">Create booking</button>
+  </form>
+  {% else %}
+  <p class="empty">Create at least one <a href="/ui/resources">resource</a> before adding bookings.</p>
+  {% endif %}
+</section>
+
+<section aria-labelledby="bookings-list-heading">
+  <h2 id="bookings-list-heading">All bookings</h2>
+
+  {% if bookings %}
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Resource</th>
+          <th>Start</th>
+          <th>End</th>
+          <th>User</th>
+          <th>Purpose</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for b in bookings %}
+        <tr>
+          <td>
+            <strong>{{ resource_name_by_id.get(b.resource_id, b.resource_id) }}</strong>
+            <div class="id-cell"><code>{{ b.resource_id }}</code></div>
+          </td>
+          <td>{{ b.start_time }}</td>
+          <td>{{ b.end_time }}</td>
+          <td>{{ b.user_name }}</td>
+          <td>{{ b.purpose }}</td>
+          <td class="row-actions">
+            <a class="btn btn-sm btn-secondary" href="/ui/bookings/{{ b.id }}/edit">Edit</a>
+            <form method="post" action="/ui/bookings/{{ b.id }}/delete" class="inline-form" onsubmit="return confirm('Delete this booking?');">
+              <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="empty">No bookings yet.</p>
+  {% endif %}
+</section>
+{% endblock %}

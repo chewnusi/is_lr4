@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Edit booking — RBMS{% endblock %}
+{% block tagline %}Update booking details.{% endblock %}
+{% block content %}
+
+<p class="back-link"><a href="/ui/bookings">← Back to bookings</a></p>
+
+<section class="form-section" aria-labelledby="edit-heading">
+  <h2 id="edit-heading">Edit booking</h2>
+  {% if resource_options %}
+  <form method="post" action="/ui/bookings/{{ booking.id }}/edit" class="stacked-form">
+    <label>Resource
+      <select name="resource_id" required>
+        {% for r in resource_options %}
+        <option value="{{ r.id }}" {% if r.id == booking.resource_id %}selected{% endif %}>{{ r.name }} — {{ r.type }} ({{ r.id }})</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>User name <input type="text" name="user_name" value="{{ booking.user_name }}" required></label>
+    <label>Start time <input type="text" name="start_time" value="{{ booking.start_time }}" required></label>
+    <label>End time <input type="text" name="end_time" value="{{ booking.end_time }}" required></label>
+    <label>Purpose <input type="text" name="purpose" value="{{ booking.purpose }}" required></label>
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">Save changes</button>
+      <a class="btn btn-secondary" href="/ui/bookings">Cancel</a>
+    </div>
+  </form>
+  {% else %}
+  <p class="empty">No resources available. <a href="/ui/resources">Create a resource</a> first.</p>
+  {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,42 @@
+[
+  {
+    "id": "demo-seed-b01",
+    "resource_id": "demo-seed-r01",
+    "user_name": "Alice Chen",
+    "start_time": "2026-04-02T09:00:00",
+    "end_time": "2026-04-02T10:30:00",
+    "purpose": "Team meeting"
+  },
+  {
+    "id": "demo-seed-b02",
+    "resource_id": "demo-seed-r03",
+    "user_name": "Jordan Smith",
+    "start_time": "2026-04-02T14:00:00",
+    "end_time": "2026-04-02T17:00:00",
+    "purpose": "Client call"
+  },
+  {
+    "id": "demo-seed-b03",
+    "resource_id": "demo-seed-r07",
+    "user_name": "Dr. Patel",
+    "start_time": "2026-04-03T10:00:00",
+    "end_time": "2026-04-03T12:00:00",
+    "purpose": "Workshop"
+  },
+  {
+    "id": "demo-seed-b04",
+    "resource_id": "demo-seed-r05",
+    "user_name": "Sam Rivera",
+    "start_time": "2026-04-03T13:00:00",
+    "end_time": "2026-04-03T14:00:00",
+    "purpose": "Presentation"
+  },
+  {
+    "id": "demo-seed-b05",
+    "resource_id": "demo-seed-r04",
+    "user_name": "Morgan Lee",
+    "start_time": "2026-04-04T08:00:00",
+    "end_time": "2026-04-04T12:00:00",
+    "purpose": "Maintenance"
+  }
+]

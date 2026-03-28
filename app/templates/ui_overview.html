@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block tagline %}Read-only overview: all resources and bookings by date.{% endblock %}
+{% block content %}
+<section aria-labelledby="resources-heading">
+  <h2 id="resources-heading">Resources</h2>
+
+  {% if resources %}
+  <div class="resource-grid">
+    {% for r in resources %}
+    <article class="card">
+      <h3>{{ r.name }}</h3>
+      <dl>
+        <dt>Type</dt><dd>{{ r.type }}</dd>
+        <dt>Location</dt><dd>{{ r.location }}</dd>
+        <dt>Capacity</dt><dd>{{ r.capacity }}</dd>
+        <dt>Status</dt>
+        <dd>
+          {% if r.is_active %}
+          <span class="badge badge-active">Active</span>
+          {% else %}
+          <span class="badge badge-inactive">Inactive</span>
+          {% endif %}
+        </dd>
+      </dl>
+    </article>
+    {% endfor %}
+  </div>
+
+  <nav class="pagination" aria-label="Resource pages">
+    {% if pagination.has_prev %}
+    <a href="/ui?page={{ pagination.page - 1 }}">Previous</a>
+    {% else %}
+    <span class="nav-disabled" aria-disabled="true">Previous</span>
+    {% endif %}
+
+    {% if pagination.has_next %}
+    <a href="/ui?page={{ pagination.page + 1 }}">Next</a>
+    {% else %}
+    <span class="nav-disabled" aria-disabled="true">Next</span>
+    {% endif %}
+
+    <span class="meta">Page {{ pagination.page }} of {{ pagination.total_pages }} ({{ pagination.total }} total)</span>
+  </nav>
+  {% else %}
+  <p class="empty">No resources yet. Add some on the <a href="/ui/resources">Resources</a> page.</p>
+  {% endif %}
+</section>
+
+<section aria-labelledby="calendar-heading">
+  <h2 id="calendar-heading">Bookings calendar</h2>
+
+  {% if booking_days %}
+    {% for day in booking_days %}
+    <div class="calendar-day">
+      <header>{{ day.date_label }}</header>
+      <ul class="booking-list">
+        {% for b in day.bookings %}
+        <li>
+          <div class="time">{{ b.start_time }} — {{ b.end_time }}</div>
+          <div class="resource">{{ b.resource_label }}{% if b.resource_id and b.resource_label != b.resource_id %} <span class="id-ref">{{ b.resource_id }}</span>{% endif %}</div>
+          <div class="user">{{ b.user_name }}</div>
+          <div class="purpose">{{ b.purpose }}</div>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endfor %}
+  {% else %}
+  <p class="empty">No bookings yet. Add some on the <a href="/ui/bookings">Bookings</a> page.</p>
+  {% endif %}
+</section>
+{% endblock %}

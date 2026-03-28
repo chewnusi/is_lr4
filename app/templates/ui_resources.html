@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Resources — RBMS{% endblock %}
+{% block tagline %}Create, edit, and delete resources (5 per page).{% endblock %}
+{% block content %}
+
+<section class="form-section" aria-labelledby="create-resource-heading">
+  <h2 id="create-resource-heading">New resource</h2>
+  <form method="post" action="/ui/resources" class="stacked-form">
+    <input type="hidden" name="page" value="{{ pagination.page }}">
+    <label>Name <input type="text" name="name" required></label>
+    <label>Type <input type="text" name="resource_type" required placeholder="e.g. meeting_room"></label>
+    <label>Location <input type="text" name="location" required></label>
+    <label>Capacity <input type="number" name="capacity" min="1" value="1" required></label>
+    <label>Active
+      <select name="is_active">
+        <option value="true" selected>Yes</option>
+        <option value="false">No</option>
+      </select>
+    </label>
+    <button type="submit" class="btn btn-primary">Create resource</button>
+  </form>
+</section>
+
+<section aria-labelledby="list-heading">
+  <h2 id="list-heading">All resources</h2>
+
+  {% if resources %}
+  <div class="resource-grid">
+    {% for r in resources %}
+    <article class="card card-actions">
+      <h3>{{ r.name }}</h3>
+      <dl>
+        <dt>Type</dt><dd>{{ r.type }}</dd>
+        <dt>Location</dt><dd>{{ r.location }}</dd>
+        <dt>Capacity</dt><dd>{{ r.capacity }}</dd>
+        <dt>Status</dt>
+        <dd>
+          {% if r.is_active %}
+          <span class="badge badge-active">Active</span>
+          {% else %}
+          <span class="badge badge-inactive">Inactive</span>
+          {% endif %}
+        </dd>
+      </dl>
+      <div class="card-footer">
+        <a class="btn btn-secondary" href="/ui/resources/{{ r.id }}/edit">Edit</a>
+        <form method="post" action="/ui/resources/{{ r.id }}/delete" class="inline-form" onsubmit="return confirm('Delete this resource?');">
+          <input type="hidden" name="page" value="{{ pagination.page }}">
+          <button type="submit" class="btn btn-danger">Delete</button>
+        </form>
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+
+  <nav class="pagination" aria-label="Resource pages">
+    {% if pagination.has_prev %}
+    <a href="/ui/resources?page={{ pagination.page - 1 }}">Previous</a>
+    {% else %}
+    <span class="nav-disabled" aria-disabled="true">Previous</span>
+    {% endif %}
+
+    {% if pagination.has_next %}
+    <a href="/ui/resources?page={{ pagination.page + 1 }}">Next</a>
+    {% else %}
+    <span class="nav-disabled" aria-disabled="true">Next</span>
+    {% endif %}
+
+    <span class="meta">Page {{ pagination.page }} of {{ pagination.total_pages }} ({{ pagination.total }} total)</span>
+  </nav>
+  {% else %}
+  <p class="empty">No resources on this page.</p>
+  {% endif %}
+</section>
+{% endblock %}

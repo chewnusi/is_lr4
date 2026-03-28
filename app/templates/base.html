@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Resource Booking Management System{% endblock %}</title>
+  <link rel="stylesheet" href="/static/ui.css">
+</head>
+<body>
+  <header class="site-header">
+    <h1>Resource Booking Management System</h1>
+    <p class="tagline">{% block tagline %}Manage resources and bookings from the browser or the REST API.{% endblock %}</p>
+    <nav class="main-nav" aria-label="Main">
+      <a href="/ui">Overview</a>
+      <a href="/ui/resources">Resources</a>
+      <a href="/ui/bookings">Bookings</a>
+      <a href="/docs" class="nav-secondary">API docs</a>
+    </nav>
+  </header>
+
+  {% if flash_message %}
+  <div class="wrap">
+    <div class="flash flash-{{ flash_notice or 'ok' }}" role="status">{{ flash_message }}</div>
+  </div>
+  {% endif %}
+
+  <div class="wrap">
+    {% block content %}{% endblock %}
+  </div>
+</body>
+</html>

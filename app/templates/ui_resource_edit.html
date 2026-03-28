@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Edit resource — RBMS{% endblock %}
+{% block tagline %}Update fields and save.{% endblock %}
+{% block content %}
+
+<p class="back-link"><a href="/ui/resources">← Back to resources</a></p>
+
+<section class="form-section" aria-labelledby="edit-heading">
+  <h2 id="edit-heading">Edit resource</h2>
+  <form method="post" action="/ui/resources/{{ resource.id }}/edit" class="stacked-form">
+    <label>Name <input type="text" name="name" value="{{ resource.name }}" required></label>
+    <label>Type <input type="text" name="resource_type" value="{{ resource.type }}" required></label>
+    <label>Location <input type="text" name="location" value="{{ resource.location }}" required></label>
+    <label>Capacity <input type="number" name="capacity" min="1" value="{{ resource.capacity }}" required></label>
+    <label>Active
+      <select name="is_active">
+        <option value="true" {% if resource.is_active %}selected{% endif %}>Yes</option>
+        <option value="false" {% if not resource.is_active %}selected{% endif %}>No</option>
+      </select>
+    </label>
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">Save changes</button>
+      <a class="btn btn-secondary" href="/ui/resources">Cancel</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

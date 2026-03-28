@@ -1,0 +1,427 @@
+/* Minimal dashboard styles — Resource Booking Management System */
+
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --text: #1a1d23;
+  --muted: #5c6370;
+  --border: #e2e5eb;
+  --accent: #2d6a4f;
+  --accent-soft: #d8f3dc;
+  --danger-soft: #fde8e8;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--bg);
+}
+
+.site-header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.site-header h1 {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.site-header p,
+.site-header .tagline {
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.main-nav {
+  margin-top: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  font-family: system-ui, sans-serif;
+  font-size: 0.9rem;
+}
+
+.main-nav a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.main-nav a:hover {
+  text-decoration: underline;
+}
+
+.main-nav .nav-secondary {
+  color: var(--muted);
+}
+
+.flash {
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  margin-bottom: 1.25rem;
+  font-family: system-ui, sans-serif;
+  font-size: 0.95rem;
+}
+
+.flash-ok {
+  background: var(--accent-soft);
+  color: #1b4332;
+  border: 1px solid #95d5b2;
+}
+
+.flash-error {
+  background: var(--danger-soft);
+  color: #7f1d1d;
+  border: 1px solid #fecaca;
+}
+
+.wrap {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 1.25rem 2.5rem;
+}
+
+section {
+  margin-bottom: 2.5rem;
+}
+
+section h2 {
+  font-size: 1.15rem;
+  font-weight: 600;
+  margin: 0 0 1rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 2px solid var(--accent);
+  display: inline-block;
+}
+
+.resource-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+@media (min-width: 640px) {
+  .resource-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem 1.1rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.card h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1.05rem;
+}
+
+.card dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.25rem 0.75rem;
+  font-size: 0.9rem;
+}
+
+.card dt {
+  color: var(--muted);
+  font-weight: normal;
+}
+
+.card dd {
+  margin: 0;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-family: system-ui, sans-serif;
+}
+
+.badge-active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.badge-inactive {
+  background: var(--danger-soft);
+  color: #9b2c2c;
+}
+
+.empty {
+  color: var(--muted);
+  font-style: italic;
+  margin: 0;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.pagination a,
+.pagination span {
+  font-family: system-ui, sans-serif;
+  font-size: 0.9rem;
+}
+
+.pagination a {
+  color: var(--accent);
+  text-decoration: none;
+  padding: 0.35rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+.pagination a:hover {
+  border-color: var(--accent);
+}
+
+.pagination .nav-disabled {
+  font-family: system-ui, sans-serif;
+  font-size: 0.9rem;
+  padding: 0.35rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  opacity: 0.45;
+  cursor: not-allowed;
+  color: var(--muted);
+}
+
+.pagination .meta {
+  color: var(--muted);
+}
+
+.calendar-day {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  overflow: hidden;
+}
+
+.calendar-day header {
+  background: #eef1f5;
+  padding: 0.6rem 1rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.booking-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.booking-list li {
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.booking-list li:last-child {
+  border-bottom: none;
+}
+
+.booking-list .time {
+  font-family: system-ui, sans-serif;
+  font-size: 0.88rem;
+  color: var(--muted);
+  margin-bottom: 0.25rem;
+}
+
+.booking-list .resource {
+  font-weight: 600;
+  margin-bottom: 0.2rem;
+}
+
+.booking-list .id-ref {
+  font-weight: normal;
+  font-size: 0.85rem;
+  color: var(--muted);
+  font-family: system-ui, sans-serif;
+}
+
+.booking-list .user {
+  font-size: 0.9rem;
+}
+
+.booking-list .purpose {
+  font-size: 0.88rem;
+  color: var(--muted);
+  margin-top: 0.35rem;
+}
+
+/* Forms & CRUD */
+.form-section {
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.stacked-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  max-width: 28rem;
+  font-family: system-ui, sans-serif;
+  font-size: 0.95rem;
+}
+
+.stacked-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.stacked-form input,
+.stacked-form select {
+  padding: 0.45rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.95rem;
+}
+
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.btn {
+  display: inline-block;
+  padding: 0.45rem 0.85rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-family: system-ui, sans-serif;
+  font-size: 0.9rem;
+  cursor: pointer;
+  text-decoration: none;
+  color: var(--text);
+  line-height: 1.3;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.btn-primary:hover {
+  filter: brightness(1.05);
+}
+
+.btn-secondary:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.btn-danger {
+  background: #fff;
+  border-color: #e07a7a;
+  color: #9b2c2c;
+}
+
+.btn-danger:hover {
+  background: var(--danger-soft);
+}
+
+.btn-sm {
+  padding: 0.3rem 0.55rem;
+  font-size: 0.82rem;
+}
+
+.card-actions .card-footer {
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.inline-form {
+  display: inline;
+}
+
+.inline-form button {
+  vertical-align: middle;
+}
+
+.back-link {
+  margin: 0 0 1rem;
+  font-family: system-ui, sans-serif;
+  font-size: 0.9rem;
+}
+
+.back-link a {
+  color: var(--accent);
+}
+
+.table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: system-ui, sans-serif;
+  font-size: 0.88rem;
+}
+
+.data-table th,
+.data-table td {
+  padding: 0.55rem 0.65rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.data-table th {
+  background: #eef1f5;
+  font-weight: 600;
+}
+
+.data-table tr:last-child td {
+  border-bottom: none;
+}
+
+.data-table .id-cell {
+  font-size: 0.78rem;
+  word-break: break-all;
+}
+
+.row-actions {
+  white-space: nowrap;
+}
+
+.row-actions .inline-form {
+  margin-left: 0.35rem;
+}
