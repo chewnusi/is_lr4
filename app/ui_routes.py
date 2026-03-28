@@ -292,6 +292,8 @@ def ui_booking_approve(request: Request, booking_id: str) -> RedirectResponse:
         services.approve_booking(booking_id)
     except services.NotFoundError:
         return _redirect_with_flash("/ui/bookings", FLASH_ERR, "Booking not found.")
+    except services.BadRequestError as e:
+        return _redirect_with_flash("/ui/bookings", FLASH_ERR, e.message)
     return _redirect_with_flash("/ui/bookings", FLASH_OK, "Booking approved.")
 
 

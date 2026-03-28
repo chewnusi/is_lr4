@@ -6,9 +6,13 @@ Used by JSON API routes and HTML UI routes so behavior stays in one place.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Literal
 
 from app import storage
+
+# Returned on PATCH approve when another approved booking overlaps this one (same resource).
+BOOKING_CONFLICT_MESSAGE = "Booking conflict detected"
 from app.models import (
     BOOKING_STATUS_VALUES,
     Booking,
@@ -60,6 +64,49 @@ def _normalize_booking_dict(row: dict) -> dict:
 
 def _booking_model(row: dict) -> Booking:
     return Booking.model_validate(_normalize_booking_dict(row))
+
+
+def _parse_booking_datetime(value: str) -> datetime | None:
+    """Parse ISO-like start/end strings; None if unparseable."""
+    s = (value or "").strip()
+    if not s:
+        return None
+    for candidate in (s, s.replace(" ", "T", 1)):
+        try:
+            dt = datetime.fromisoformat(candidate.replace("Z", "+00:00"))
+            if dt.tzinfo is not None:
+                dt = dt.replace(tzinfo=None)
+            return dt
+        except ValueError:
+            continue
+    return None
+
+
+def _intervals_overlap(a_start: datetime, a_end: datetime, b_start: datetime, b_end: datetime) -> bool:
+    """True iff [a_start, a_end) overlaps [b_start, b_end) per strict inequality rule."""
+    return a_start < b_end and a_end > b_start
+
+
+def _approved_booking_conflicts_with(
+    other: dict,
+    exclude_booking_id: str,
+    resource_id: str,
+    new_start: datetime,
+    new_end: datetime,
+) -> bool:
+    """other is a raw row; True if other is approved, same resource, not excluded, and overlaps new interval."""
+    if str(other.get("id", "")) == exclude_booking_id:
+        return False
+    norm = _normalize_booking_dict(other)
+    if norm.get("status") != "approved":
+        return False
+    if str(norm.get("resource_id", "")) != resource_id:
+        return False
+    o_start = _parse_booking_datetime(str(norm.get("start_time", "")))
+    o_end = _parse_booking_datetime(str(norm.get("end_time", "")))
+    if o_start is None or o_end is None:
+        return False
+    return _intervals_overlap(o_start, o_end, new_start, new_end)
 
 
 # --- Resources ---
@@ -157,7 +204,22 @@ def update_booking(booking_id: str, payload: BookingUpdate) -> Booking:
 
 
 def approve_booking(booking_id: str) -> Booking:
-    return _set_booking_status(booking_id, "approved")
+    bookings = storage.load_bookings()
+    idx = _find_index_by_id(bookings, booking_id)
+    if idx is None:
+        raise NotFoundError(f"Booking not found: {booking_id}")
+    current = _normalize_booking_dict(dict(bookings[idx]))
+    rid = str(current.get("resource_id", ""))
+    ns = _parse_booking_datetime(str(current.get("start_time", "")))
+    ne = _parse_booking_datetime(str(current.get("end_time", "")))
+    if ns is not None and ne is not None:
+        for row in bookings:
+            if _approved_booking_conflicts_with(row, booking_id, rid, ns, ne):
+                raise BadRequestError(BOOKING_CONFLICT_MESSAGE)
+    current["status"] = "approved"
+    bookings[idx] = current
+    storage.save_bookings(bookings)
+    return _booking_model(current)
 
 
 def cancel_booking(booking_id: str) -> Booking:
