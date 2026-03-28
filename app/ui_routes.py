@@ -284,3 +284,21 @@ def ui_booking_delete(request: Request, booking_id: str) -> RedirectResponse:
     except services.NotFoundError:
         return _redirect_with_flash("/ui/bookings", FLASH_ERR, "Booking not found.")
     return _redirect_with_flash("/ui/bookings", FLASH_OK, "Booking deleted.")
+
+
+@router.post("/ui/bookings/{booking_id}/approve")
+def ui_booking_approve(request: Request, booking_id: str) -> RedirectResponse:
+    try:
+        services.approve_booking(booking_id)
+    except services.NotFoundError:
+        return _redirect_with_flash("/ui/bookings", FLASH_ERR, "Booking not found.")
+    return _redirect_with_flash("/ui/bookings", FLASH_OK, "Booking approved.")
+
+
+@router.post("/ui/bookings/{booking_id}/cancel")
+def ui_booking_cancel(request: Request, booking_id: str) -> RedirectResponse:
+    try:
+        services.cancel_booking(booking_id)
+    except services.NotFoundError:
+        return _redirect_with_flash("/ui/bookings", FLASH_ERR, "Booking not found.")
+    return _redirect_with_flash("/ui/bookings", FLASH_OK, "Booking cancelled.")

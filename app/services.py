@@ -6,8 +6,11 @@ Used by JSON API routes and HTML UI routes so behavior stays in one place.
 
 from __future__ import annotations
 
+from typing import Literal
+
 from app import storage
 from app.models import (
+    BOOKING_STATUS_VALUES,
     Booking,
     BookingCreate,
     BookingUpdate,
@@ -44,6 +47,19 @@ def _find_index_by_id(items: list[dict], item_id: str) -> int | None:
 def resource_exists(resource_id: str) -> bool:
     resources = storage.load_resources()
     return any(r.get("id") == resource_id for r in resources)
+
+
+def _normalize_booking_dict(row: dict) -> dict:
+    """Ensure status is present and valid (legacy JSON may omit it)."""
+    d = dict(row)
+    s = d.get("status")
+    if not s or s not in BOOKING_STATUS_VALUES:
+        d["status"] = "pending"
+    return d
+
+
+def _booking_model(row: dict) -> Booking:
+    return Booking.model_validate(_normalize_booking_dict(row))
 
 
 # --- Resources ---
@@ -103,15 +119,15 @@ def create_booking(payload: BookingCreate) -> Booking:
         raise BadRequestError(f"Unknown resource_id: {payload.resource_id}")
     bookings = storage.load_bookings()
     new_id = generate_id()
-    record = {"id": new_id, **payload.model_dump()}
+    record = {"id": new_id, **payload.model_dump(), "status": "pending"}
     bookings.append(record)
     storage.save_bookings(bookings)
-    return Booking.model_validate(record)
+    return _booking_model(record)
 
 
 def list_bookings() -> list[Booking]:
     bookings = storage.load_bookings()
-    return [Booking.model_validate(b) for b in bookings]
+    return [_booking_model(b) for b in bookings]
 
 
 def get_booking(booking_id: str) -> Booking:
@@ -119,7 +135,7 @@ def get_booking(booking_id: str) -> Booking:
     idx = _find_index_by_id(bookings, booking_id)
     if idx is None:
         raise NotFoundError(f"Booking not found: {booking_id}")
-    return Booking.model_validate(bookings[idx])
+    return _booking_model(bookings[idx])
 
 
 def update_booking(booking_id: str, payload: BookingUpdate) -> Booking:
@@ -133,11 +149,31 @@ def update_booking(booking_id: str, payload: BookingUpdate) -> Booking:
     new_rid = updates.get("resource_id")
     if new_rid is not None and not resource_exists(new_rid):
         raise BadRequestError(f"Unknown resource_id: {new_rid}")
-    current = dict(bookings[idx])
+    current = _normalize_booking_dict(dict(bookings[idx]))
     current.update(updates)
     bookings[idx] = current
     storage.save_bookings(bookings)
-    return Booking.model_validate(current)
+    return _booking_model(current)
+
+
+def approve_booking(booking_id: str) -> Booking:
+    return _set_booking_status(booking_id, "approved")
+
+
+def cancel_booking(booking_id: str) -> Booking:
+    return _set_booking_status(booking_id, "cancelled")
+
+
+def _set_booking_status(booking_id: str, status: Literal["approved", "cancelled"]) -> Booking:
+    bookings = storage.load_bookings()
+    idx = _find_index_by_id(bookings, booking_id)
+    if idx is None:
+        raise NotFoundError(f"Booking not found: {booking_id}")
+    current = _normalize_booking_dict(dict(bookings[idx]))
+    current["status"] = status
+    bookings[idx] = current
+    storage.save_bookings(bookings)
+    return _booking_model(current)
 
 
 def delete_booking(booking_id: str) -> None:

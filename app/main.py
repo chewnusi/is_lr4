@@ -109,6 +109,24 @@ def update_booking(booking_id: str, payload: BookingUpdate) -> Booking:
     return _http_from_service(services.update_booking, booking_id, payload)
 
 
+@app.patch(
+    "/bookings/{booking_id}/approve",
+    response_model=Booking,
+    tags=["bookings"],
+)
+def approve_booking(booking_id: str) -> Booking:
+    return _http_from_service(services.approve_booking, booking_id)
+
+
+@app.patch(
+    "/bookings/{booking_id}/cancel",
+    response_model=Booking,
+    tags=["bookings"],
+)
+def cancel_booking(booking_id: str) -> Booking:
+    return _http_from_service(services.cancel_booking, booking_id)
+
+
 @app.delete("/bookings/{booking_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["bookings"])
 def delete_booking(booking_id: str) -> None:
     _http_from_service(services.delete_booking, booking_id)

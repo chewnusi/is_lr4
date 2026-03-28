@@ -11,6 +11,7 @@ from datetime import datetime
 from typing import Any
 
 from app import storage
+from app.models import BOOKING_STATUS_VALUES
 
 RESOURCES_PER_PAGE = 5
 
@@ -90,6 +91,8 @@ def build_booking_calendar_rows() -> list[dict[str, Any]]:
 
         if sort_key not in by_key:
             by_key[sort_key] = (date_label, [])
+        raw_status = b.get("status")
+        status = raw_status if raw_status in BOOKING_STATUS_VALUES else "pending"
         by_key[sort_key][1].append(
             {
                 "resource_label": resource_label,
@@ -98,6 +101,7 @@ def build_booking_calendar_rows() -> list[dict[str, Any]]:
                 "end_time": str(b.get("end_time", "")),
                 "user_name": str(b.get("user_name", "")),
                 "purpose": str(b.get("purpose", "")),
+                "status": status,
             }
         )
 

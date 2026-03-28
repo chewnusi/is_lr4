@@ -5,7 +5,8 @@
     "user_name": "Alice Chen",
     "start_time": "2026-04-02T09:00:00",
     "end_time": "2026-04-02T10:30:00",
-    "purpose": "Team meeting"
+    "purpose": "Team meeting",
+    "status": "pending"
   },
   {
     "id": "demo-seed-b02",
@@ -13,7 +14,8 @@
     "user_name": "Jordan Smith",
     "start_time": "2026-04-02T14:00:00",
     "end_time": "2026-04-02T17:00:00",
-    "purpose": "Client call"
+    "purpose": "Client call",
+    "status": "pending"
   },
   {
     "id": "demo-seed-b03",
@@ -21,7 +23,8 @@
     "user_name": "Dr. Patel",
     "start_time": "2026-04-03T10:00:00",
     "end_time": "2026-04-03T12:00:00",
-    "purpose": "Workshop"
+    "purpose": "Workshop",
+    "status": "pending"
   },
   {
     "id": "demo-seed-b04",
@@ -29,7 +32,8 @@
     "user_name": "Sam Rivera",
     "start_time": "2026-04-03T13:00:00",
     "end_time": "2026-04-03T14:00:00",
-    "purpose": "Presentation"
+    "purpose": "Presentation",
+    "status": "pending"
   },
   {
     "id": "demo-seed-b05",
@@ -37,6 +41,7 @@
     "user_name": "Morgan Lee",
     "start_time": "2026-04-04T08:00:00",
     "end_time": "2026-04-04T12:00:00",
-    "purpose": "Maintenance"
+    "purpose": "Maintenance",
+    "status": "pending"
   }
 ]

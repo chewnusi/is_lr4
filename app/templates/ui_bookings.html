@@ -35,6 +35,7 @@
       <thead>
         <tr>
           <th>Resource</th>
+          <th>Status</th>
           <th>Start</th>
           <th>End</th>
           <th>User</th>
@@ -49,11 +50,18 @@
             <strong>{{ resource_name_by_id.get(b.resource_id, b.resource_id) }}</strong>
             <div class="id-cell"><code>{{ b.resource_id }}</code></div>
           </td>
+          <td><span class="badge badge-status-{{ b.status }}">{{ b.status }}</span></td>
           <td>{{ b.start_time }}</td>
           <td>{{ b.end_time }}</td>
           <td>{{ b.user_name }}</td>
           <td>{{ b.purpose }}</td>
           <td class="row-actions">
+            <form method="post" action="/ui/bookings/{{ b.id }}/approve" class="inline-form">
+              <button type="submit" class="btn btn-sm btn-approve">Approve</button>
+            </form>
+            <form method="post" action="/ui/bookings/{{ b.id }}/cancel" class="inline-form">
+              <button type="submit" class="btn btn-sm btn-cancel">Cancel</button>
+            </form>
             <a class="btn btn-sm btn-secondary" href="/ui/bookings/{{ b.id }}/edit">Edit</a>
             <form method="post" action="/ui/bookings/{{ b.id }}/delete" class="inline-form" onsubmit="return confirm('Delete this booking?');">
               <button type="submit" class="btn btn-sm btn-danger">Delete</button>
