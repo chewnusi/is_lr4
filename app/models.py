@@ -1,6 +1,12 @@
 """Pydantic models for API request/response bodies."""
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
+
+BookingStatus = Literal["pending", "approved", "cancelled"]
+
+BOOKING_STATUS_VALUES: frozenset[str] = frozenset({"pending", "approved", "cancelled"})
 
 
 class ResourceBase(BaseModel):
@@ -31,7 +37,9 @@ class Resource(ResourceBase):
     id: str
 
 
-class BookingBase(BaseModel):
+class BookingCore(BaseModel):
+    """Shared booking fields (no status — status is set by the server on create)."""
+
     resource_id: str = Field(..., min_length=1)
     user_name: str = Field(..., min_length=1)
     start_time: str = Field(..., min_length=1)
@@ -39,8 +47,8 @@ class BookingBase(BaseModel):
     purpose: str = Field(..., min_length=1)
 
 
-class BookingCreate(BookingBase):
-    """Payload for creating a booking (id is assigned by the server)."""
+class BookingCreate(BookingCore):
+    """Create payload; status is always started as pending."""
 
     pass
 
@@ -55,5 +63,6 @@ class BookingUpdate(BaseModel):
     purpose: str | None = Field(default=None, min_length=1)
 
 
-class Booking(BookingBase):
+class Booking(BookingCore):
     id: str
+    status: BookingStatus = Field(default="pending", description="pending | approved | cancelled")

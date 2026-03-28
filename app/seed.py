@@ -142,7 +142,7 @@ def seed_demo_data() -> None:
     for bid, payload in booking_defs:
         if payload.resource_id not in demo_resource_ids:
             raise RuntimeError("Booking references a resource id not in the demo set.")
-        record = {"id": bid, **payload.model_dump()}
+        record = {"id": bid, **payload.model_dump(), "status": "pending"}
         Booking.model_validate(record)
         bookings.append(record)
     storage.save_bookings(bookings)

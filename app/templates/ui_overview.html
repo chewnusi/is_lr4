@@ -58,7 +58,7 @@
         <li>
           <div class="time">{{ b.start_time }} — {{ b.end_time }}</div>
           <div class="resource">{{ b.resource_label }}{% if b.resource_id and b.resource_label != b.resource_id %} <span class="id-ref">{{ b.resource_id }}</span>{% endif %}</div>
-          <div class="user">{{ b.user_name }}</div>
+          <div class="user">{{ b.user_name }} · <span class="badge badge-status-{{ b.status }}">{{ b.status }}</span></div>
           <div class="purpose">{{ b.purpose }}</div>
         </li>
         {% endfor %}

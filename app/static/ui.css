@@ -165,6 +165,40 @@ section h2 {
   color: #9b2c2c;
 }
 
+.badge-status-pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.badge-status-approved {
+  background: var(--accent-soft);
+  color: #1b4332;
+}
+
+.badge-status-cancelled {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.status-line {
+  font-family: system-ui, sans-serif;
+  font-size: 0.9rem;
+  color: var(--muted);
+  margin: 0 0 1rem;
+}
+
+.btn-approve {
+  background: #ecfdf5;
+  border-color: #6ee7b7;
+  color: #065f46;
+}
+
+.btn-cancel {
+  background: #fffbeb;
+  border-color: #fcd34d;
+  color: #92400e;
+}
+
 .empty {
   color: var(--muted);
   font-style: italic;
