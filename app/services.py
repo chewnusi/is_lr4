@@ -74,6 +74,26 @@ def _assert_no_approved_conflict(
             raise BadRequestError("Booking conflict detected")
 
 
+def _assert_no_active_conflict(
+    session: Session,
+    resource_id: str,
+    start_time: datetime,
+    end_time: datetime,
+    exclude_booking_id: str | None = None,
+) -> None:
+    active_bookings = session.exec(
+        select(Booking).where(
+            Booking.resource_id == resource_id,
+            Booking.status != BookingStatus.cancelled,
+        )
+    ).all()
+    for existing in active_bookings:
+        if exclude_booking_id and existing.id == exclude_booking_id:
+            continue
+        if _intervals_overlap(existing.start_time, existing.end_time, start_time, end_time):
+            raise BadRequestError("Booking conflict detected")
+
+
 def _ensure_employee_owns_booking(actor: User, booking: Booking) -> None:
     if actor.role == UserRole.admin:
         return
@@ -157,6 +177,7 @@ def create_booking(session: Session, payload: BookingCreate, actor: User) -> Boo
     resource = _ensure_resource_exists(session, payload.resource_id)
     _validate_booking_window(payload.start_time, payload.end_time)
     _validate_attendees_capacity(resource, payload.attendees_count)
+    _assert_no_active_conflict(session, payload.resource_id, payload.start_time, payload.end_time)
     booking = Booking(
         id=generate_id(),
         status=BookingStatus.pending,
@@ -195,14 +216,13 @@ def update_booking(session: Session, booking_id: str, payload: BookingUpdate, ac
     _validate_booking_window(new_start, new_end)
     next_attendees = updates.get("attendees_count", booking.attendees_count)
     _validate_attendees_capacity(resource, next_attendees)
-    if booking.status == BookingStatus.approved:
-        _assert_no_approved_conflict(
-            session,
-            updates.get("resource_id", booking.resource_id),
-            new_start,
-            new_end,
-            exclude_booking_id=booking.id,
-        )
+    _assert_no_active_conflict(
+        session,
+        updates.get("resource_id", booking.resource_id),
+        new_start,
+        new_end,
+        exclude_booking_id=booking.id,
+    )
     for key, value in updates.items():
         setattr(booking, key, value)
     booking.updated_at = datetime.now(UTC).replace(tzinfo=None)
@@ -253,3 +273,35 @@ def delete_booking(session: Session, booking_id: str, actor: User) -> None:
 
 def list_users(session: Session) -> list[User]:
     return session.exec(select(User).order_by(col(User.role), User.name)).all()
+
+
+def create_user(session: Session, user_id: str, name: str, role: UserRole, password_hash: str, is_active: bool = True) -> User:
+    if session.get(User, user_id):
+        raise BadRequestError(f"User already exists: {user_id}")
+    user = User(id=user_id, name=name, role=role, password_hash=password_hash, is_active=is_active)
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return user
+
+
+def reset_user_password(session: Session, user_id: str, password_hash: str) -> User:
+    user = session.get(User, user_id)
+    if user is None:
+        raise NotFoundError(f"User not found: {user_id}")
+    user.password_hash = password_hash
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return user
+
+
+def set_user_active(session: Session, user_id: str, is_active: bool) -> User:
+    user = session.get(User, user_id)
+    if user is None:
+        raise NotFoundError(f"User not found: {user_id}")
+    user.is_active = is_active
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return user

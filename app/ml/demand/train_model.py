@@ -50,6 +50,19 @@ def _baseline_predict(train_rows: list[DemandRow], test_rows: list[DemandRow]) -
     return preds
 
 
+def _build_baseline_stats(train_rows: list[DemandRow]) -> tuple[dict[str, float], float]:
+    grouped: dict[tuple[int, int, str], list[int]] = {}
+    for row in train_rows:
+        grouped.setdefault((row.day_of_week, row.hour, row.resource_type), []).append(row.bookings_count)
+    grouped_means = {f"{key[0]}|{key[1]}|{key[2]}": float(mean(values)) for key, values in grouped.items()}
+    fallback = float(mean([row.bookings_count for row in train_rows])) if train_rows else 0.0
+    return grouped_means, fallback
+
+
+def _weighted_error(mae: float, rmse: float, rmse_weight: float = 0.7, mae_weight: float = 0.3) -> float:
+    return (rmse * rmse_weight) + (mae * mae_weight)
+
+
 def train_and_save(random_state: int = 42) -> dict:
     rows = load_training_rows_from_db()
     if len(rows) < 50:
@@ -68,6 +81,10 @@ def train_and_save(random_state: int = 42) -> dict:
     predictions = model.predict(x_test)
     rf_mae = mean_absolute_error(y_test, predictions)
     rf_rmse = mean_squared_error(y_test, predictions) ** 0.5
+    baseline_stats, baseline_fallback = _build_baseline_stats(train_rows)
+    baseline_weighted = _weighted_error(baseline_mae, baseline_rmse)
+    rf_weighted = _weighted_error(rf_mae, rf_rmse)
+    selected_model = "random_forest" if rf_weighted < baseline_weighted else "baseline"
     MODEL_DIR.mkdir(parents=True, exist_ok=True)
     joblib.dump({"model": model, "vectorizer": vec}, MODEL_PATH)
     metadata = {
@@ -81,6 +98,16 @@ def train_and_save(random_state: int = 42) -> dict:
         "features": ["day_of_week", "hour", "resource_type", "building", "purpose_category", "duration_minutes", "status"],
         "baseline": {"mae": baseline_mae, "rmse": baseline_rmse},
         "random_forest": {"mae": rf_mae, "rmse": rf_rmse},
+        "selection_policy": {"rmse_weight": 0.7, "mae_weight": 0.3},
+        "selection_score": {
+            "baseline": baseline_weighted,
+            "random_forest": rf_weighted,
+        },
+        "selected_model": selected_model,
+        "baseline_runtime": {
+            "grouped_means": baseline_stats,
+            "fallback_mean": baseline_fallback,
+        },
     }
     META_PATH.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
     return metadata

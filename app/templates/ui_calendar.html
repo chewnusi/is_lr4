@@ -5,7 +5,6 @@
 <section>
   <h2>Calendar filters</h2>
   <form method="get" action="/ui/calendar" class="filters">
-    <input type="hidden" name="user_id" value="{{ current_user.id }}">
     <label>Status
       <select name="status_filter">
         <option value="">All</option>
@@ -23,29 +22,59 @@
       </select>
     </label>
     <label>Date <input type="date" name="date" value="{{ filters.date }}"></label>
+    {% if current_user.role.value == "admin" %}
+    <label>User
+      <select name="user_filter">
+        <option value="" {% if not filters.user %}selected{% endif %}>All users</option>
+        <option value="me" {% if filters.user == "me" %}selected{% endif %}>Me</option>
+        {% for user in user_options %}
+        <option value="{{ user.id }}" {% if filters.user == user.id %}selected{% endif %}>{{ user.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    {% endif %}
     <button class="btn btn-secondary" type="submit">Apply filters</button>
   </form>
 </section>
 <section>
-  <h2>Bookings timeline</h2>
-  {% if booking_days %}
-  {% for day in booking_days %}
-  <div class="calendar-day">
-    <header>{{ day.date_label }}</header>
-    <ul class="booking-list">
-      {% for b in day.bookings %}
-      <li>
-        <div class="time">{{ b.start_time }} — {{ b.end_time }}</div>
-        <div class="resource">{{ b.resource_label }}</div>
-        <div class="user">{{ b.user_name }} · <span class="badge badge-status-{{ b.status }}">{{ b.status }}</span></div>
-        <div class="purpose">{{ b.purpose }}</div>
-      </li>
-      {% endfor %}
-    </ul>
+  <h2>Bookings for selected date</h2>
+  {% if bookings_page %}
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Start</th><th>End</th><th>Resource</th><th>User</th><th>Status</th><th>Purpose</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for b in bookings_page %}
+        <tr>
+          <td>{{ b.start_time.strftime("%Y-%m-%d %H:%M") }}</td>
+          <td>{{ b.end_time.strftime("%Y-%m-%d %H:%M") }}</td>
+          <td>{{ resource_name_by_id.get(b.resource_id, b.resource_id) }}</td>
+          <td>{{ b.user_id }}</td>
+          <td><span class="badge badge-status-{{ b.status }}">{{ b.status }}</span></td>
+          <td>{{ b.purpose }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
   </div>
-  {% endfor %}
+  <nav class="pagination" aria-label="Calendar booking pages">
+    {% if pagination.has_prev %}
+    <a href="/ui/calendar?page={{ pagination.page - 1 }}&status_filter={{ filters.status }}&resource_type={{ filters.resource_type }}&date={{ filters.date }}&user_filter={{ filters.user }}">Previous</a>
+    {% else %}
+    <span class="nav-disabled" aria-disabled="true">Previous</span>
+    {% endif %}
+    {% if pagination.has_next %}
+    <a href="/ui/calendar?page={{ pagination.page + 1 }}&status_filter={{ filters.status }}&resource_type={{ filters.resource_type }}&date={{ filters.date }}&user_filter={{ filters.user }}">Next</a>
+    {% else %}
+    <span class="nav-disabled" aria-disabled="true">Next</span>
+    {% endif %}
+    <span class="meta">Page {{ pagination.page }} of {{ pagination.total_pages }} ({{ pagination.total }} total)</span>
+  </nav>
   {% else %}
-  <p class="empty">No bookings found for selected filters.</p>
+  <p class="empty">No bookings found for selected date/filters.</p>
   {% endif %}
 </section>
 {% endblock %}

@@ -53,6 +53,19 @@ def build_training_rows(session: Session) -> list[DemandRow]:
 
 def build_hourly_inference_rows(session: Session, target_date: date, resource_type: str, building: str | None = None) -> list[dict[str, Any]]:
     rows = build_training_rows(session)
+    if not rows:
+        return [
+            {
+                "day_of_week": target_date.weekday(),
+                "hour": hour,
+                "resource_type": resource_type,
+                "building": building or "unknown",
+                "purpose_category": "other",
+                "duration_minutes": 60,
+                "status": "pending",
+            }
+            for hour in range(24)
+        ]
     candidates = [r for r in rows if r.resource_type == resource_type and (building is None or r.building == building)]
     if not candidates:
         candidates = [r for r in rows if r.resource_type == resource_type]

@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Login — RBMS</title>
+  <link rel="stylesheet" href="/static/ui.css">
+</head>
+<body>
+  <div class="wrap">
+    <section class="form-section" aria-labelledby="login-heading">
+      <h2 id="login-heading">Login</h2>
+      {% if flash_message %}
+      <div class="flash flash-{{ flash_notice or 'error' }}" role="status">{{ flash_message }}</div>
+      {% endif %}
+      <form method="post" action="/ui/login" class="stacked-form">
+        <label>User ID <input type="text" name="user_id" required></label>
+        <label>Password <input type="password" name="password" required></label>
+        <button type="submit" class="btn btn-primary">Sign in</button>
+      </form>
+    </section>
+  </div>
+</body>
+</html>

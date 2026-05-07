@@ -115,9 +115,24 @@ class RecommendationOption(BaseModel):
     building: str | None = None
     resource_type: str
     score: float
+    cancellation_risk: float | None = Field(default=None, ge=0, le=1)
     reason: str
 
 
 class RecommendationResponse(BaseModel):
     recommendations: list[RecommendationOption]
+    model_info: dict = Field(default_factory=dict)
+
+
+class CancellationRiskRequest(BaseModel):
+    user_id: str = Field(..., min_length=1)
+    resource_id: str = Field(..., min_length=1)
+    start_time: datetime
+    end_time: datetime
+    purpose_category: str = Field(default="other", min_length=1)
+    attendees_count: int | None = Field(default=None, ge=1)
+
+
+class CancellationRiskResponse(BaseModel):
+    cancellation_risk: float = Field(..., ge=0, le=1)
     model_info: dict = Field(default_factory=dict)

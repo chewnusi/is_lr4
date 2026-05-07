@@ -39,6 +39,9 @@ class User(SQLModel, table=True):
     id: str = Field(primary_key=True)
     name: str
     role: UserRole = Field(default=UserRole.employee)
+    password_hash: str | None = None
+    is_active: bool = True
+    last_login_at: datetime | None = Field(default=None, index=True)
 
 
 class Resource(SQLModel, table=True):

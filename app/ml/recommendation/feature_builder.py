@@ -16,6 +16,7 @@ class RecommendationRequest:
     attendees_count: int
     purpose_category: str
     building: str | None = None
+    user_id: str | None = None
 
 
 @dataclass
@@ -42,6 +43,7 @@ def is_peak_hour(hour: int) -> bool:
 
 def candidate_to_features(request: RecommendationRequest, candidate: CandidateOption) -> dict:
     return {
+        "request_user_id": request.user_id or "unknown",
         "resource_id": candidate.resource.id,
         "resource_type": candidate.resource.type,
         "building": candidate.resource.building or "unknown",

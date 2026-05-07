@@ -102,4 +102,17 @@ Recommended retraining cycle:
 1. regenerate synthetic recommendation dataset
 2. retrain model
 3. verify new metrics in `reco_model.meta.json`
+4. (optional) train cancellation-risk model for blended ranking
+
+```bash
+python -m app.ml.cancellation_risk.train_model
+```
+
+## Unified Synthetic Generator
+
+You can also regenerate demand history + recommendation dataset and train risk in one flow:
+
+```bash
+python -m app.ml.generate_all_synthetic --history-count 12000 --months-back 9 --reset-history --reco-samples 8000 --train-risk
+```
 

@@ -14,7 +14,7 @@
     <div id="recommendations-output" class="status-line" style="margin-top: 0.75rem;"></div>
     <div id="recommendations-list"></div>
   </div>
-  <form method="post" action="/ui/bookings?user_id={{ current_user.id }}" class="stacked-form">
+  <form method="post" action="/ui/bookings" class="stacked-form">
     <label>Resource
       <select name="resource_id" required>
         <option value="" disabled selected>Choose a resource…</option>
@@ -23,12 +23,18 @@
         {% endfor %}
       </select>
     </label>
+    {% if current_user.role.value == "admin" %}
     <label>User
       <select name="user_id" required>
-        <option value="demo-employee" {% if current_user.id == "demo-employee" %}selected{% endif %}>Demo Employee</option>
-        <option value="demo-admin" {% if current_user.id == "demo-admin" %}selected{% endif %}>Demo Admin</option>
+        {% for user in user_options %}
+        <option value="{{ user.id }}" {% if user.id == current_user.id %}selected{% endif %}>{{ user.name }} ({{ user.id }})</option>
+        {% endfor %}
       </select>
     </label>
+    {% else %}
+    <input type="hidden" name="user_id" value="{{ current_user.id }}">
+    <p class="status-line">Booking owner: <strong>{{ current_user.name }}</strong> ({{ current_user.id }})</p>
+    {% endif %}
     <label>Start time <input type="datetime-local" name="start_time" required></label>
     <label>End time <input type="datetime-local" name="end_time" required></label>
     <label>Attendees count <input type="number" name="attendees_count" min="1" placeholder="Optional"></label>
@@ -96,7 +102,8 @@
             const card = document.createElement("div");
             card.className = "card";
             card.style.marginTop = "0.5rem";
-            card.innerHTML = `<strong>${item.resource_name}</strong> (${item.resource_type})<br>${item.start_time} - ${item.end_time}<br>Score: ${item.score}`;
+            const risk = item.cancellation_risk != null ? ` | Cancellation risk: ${(item.cancellation_risk * 100).toFixed(1)}%` : "";
+            card.innerHTML = `<strong>${item.resource_name}</strong> (${item.resource_type})<br>${item.start_time} - ${item.end_time}<br>Score: ${item.score}${risk}`;
             const useBtn = document.createElement("button");
             useBtn.type = "button";
             useBtn.className = "btn btn-sm btn-primary";
@@ -125,7 +132,6 @@
 <section aria-labelledby="bookings-list-heading">
   <h2 id="bookings-list-heading">All bookings</h2>
   <form method="get" action="/ui/bookings" class="filters">
-    <input type="hidden" name="user_id" value="{{ current_user.id }}">
     <label>Status
       <select name="status_filter">
         <option value="">All</option>
@@ -143,6 +149,17 @@
       </select>
     </label>
     <label>Date <input type="date" name="date" value="{{ filters.date }}"></label>
+    {% if current_user.role.value == "admin" %}
+    <label>User
+      <select name="user_filter">
+        <option value="" {% if not filters.user %}selected{% endif %}>All users</option>
+        <option value="me" {% if filters.user == "me" %}selected{% endif %}>My bookings</option>
+        {% for user in user_options %}
+        <option value="{{ user.id }}" {% if filters.user == user.id %}selected{% endif %}>{{ user.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    {% endif %}
     <button class="btn btn-secondary" type="submit">Apply filters</button>
   </form>
 
@@ -173,14 +190,14 @@
           <td>{{ b.user_id }}</td>
           <td>{{ b.purpose }}</td>
           <td class="row-actions">
-            <form method="post" action="/ui/bookings/{{ b.id }}/approve?user_id={{ current_user.id }}" class="inline-form">
+            <form method="post" action="/ui/bookings/{{ b.id }}/approve" class="inline-form">
               <button type="submit" class="btn btn-sm btn-approve">Approve</button>
             </form>
-            <form method="post" action="/ui/bookings/{{ b.id }}/cancel?user_id={{ current_user.id }}" class="inline-form">
+            <form method="post" action="/ui/bookings/{{ b.id }}/cancel" class="inline-form">
               <button type="submit" class="btn btn-sm btn-cancel">Cancel</button>
             </form>
-            <a class="btn btn-sm btn-secondary" href="/ui/bookings/{{ b.id }}/edit?user_id={{ current_user.id }}">Edit</a>
-            <form method="post" action="/ui/bookings/{{ b.id }}/delete?user_id={{ current_user.id }}" class="inline-form" onsubmit="return confirm('Delete this booking?');">
+            <a class="btn btn-sm btn-secondary" href="/ui/bookings/{{ b.id }}/edit">Edit</a>
+            <form method="post" action="/ui/bookings/{{ b.id }}/delete" class="inline-form" onsubmit="return confirm('Delete this booking?');">
               <button type="submit" class="btn btn-sm btn-danger">Delete</button>
             </form>
           </td>
@@ -189,6 +206,21 @@
       </tbody>
     </table>
   </div>
+  <nav class="pagination" aria-label="Booking pages">
+    {% if pagination.has_prev %}
+    <a href="/ui/bookings?page={{ pagination.page - 1 }}&status_filter={{ filters.status }}&resource_type={{ filters.resource_type }}&date={{ filters.date }}&user_filter={{ filters.user }}">Previous</a>
+    {% else %}
+    <span class="nav-disabled" aria-disabled="true">Previous</span>
+    {% endif %}
+
+    {% if pagination.has_next %}
+    <a href="/ui/bookings?page={{ pagination.page + 1 }}&status_filter={{ filters.status }}&resource_type={{ filters.resource_type }}&date={{ filters.date }}&user_filter={{ filters.user }}">Next</a>
+    {% else %}
+    <span class="nav-disabled" aria-disabled="true">Next</span>
+    {% endif %}
+
+    <span class="meta">Page {{ pagination.page }} of {{ pagination.total_pages }} ({{ pagination.total }} total)</span>
+  </nav>
   {% else %}
   <p class="empty">No bookings yet.</p>
   {% endif %}

@@ -51,7 +51,9 @@ def test_demand_forecast_requires_admin(client):
     assert response.status_code == 403
 
 
-def test_demand_forecast_returns_service_unavailable_without_model(client):
+def test_demand_forecast_returns_service_unavailable_without_model(client, tmp_path, monkeypatch):
+    monkeypatch.setenv("DEMAND_MODEL_PATH", str(tmp_path / "missing_demand_model.joblib"))
+    monkeypatch.setenv("DEMAND_MODEL_META_PATH", str(tmp_path / "missing_demand_model.meta.json"))
     response = client.get("/analytics/demand-forecast?resource_type=meeting_room&date=2026-04-10&user_id=demo-admin")
     assert response.status_code == 503
 
@@ -66,3 +68,27 @@ def test_demand_forecast_success(client, tmp_path, monkeypatch):
     assert payload["date"] == "2026-04-10"
     assert len(payload["forecast"]) == 24
     assert len(payload["peak_hours"]) == 2
+
+
+def test_demand_forecast_uses_baseline_when_selected(client, tmp_path, monkeypatch):
+    _seed_history(client)
+    meta_path = tmp_path / "demand_model.meta.json"
+    meta_path.write_text(
+        json.dumps(
+            {
+                "model_version": "test",
+                "selected_model": "baseline",
+                "baseline_runtime": {
+                    "grouped_means": {"4|10|meeting_room": 3.5},
+                    "fallback_mean": 1.0,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("DEMAND_MODEL_PATH", str(tmp_path / "missing_demand_model.joblib"))
+    monkeypatch.setenv("DEMAND_MODEL_META_PATH", str(meta_path))
+    response = client.get("/analytics/demand-forecast?resource_type=meeting_room&date=2026-04-10&user_id=demo-admin")
+    assert response.status_code == 200
+    payload = response.json()
+    assert len(payload["forecast"]) == 24

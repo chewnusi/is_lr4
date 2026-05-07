@@ -16,9 +16,9 @@ router = APIRouter(prefix="/recommendations", tags=["recommendations"])
 def booking_options(
     payload: RecommendationRequest,
     session: Session = Depends(get_session),
-    _actor: User = Depends(get_current_user),
+    actor: User = Depends(get_current_user),
 ) -> RecommendationResponse:
     try:
-        return get_booking_recommendations(session, payload)
+        return get_booking_recommendations(session, payload, actor_user_id=actor.id)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc

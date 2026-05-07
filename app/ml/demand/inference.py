@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Mapping
 from datetime import date
 from pathlib import Path
 
@@ -38,9 +39,28 @@ def load_metadata() -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _baseline_predictions(feature_rows: list[dict], metadata: Mapping) -> list[float]:
+    runtime = metadata.get("baseline_runtime")
+    if not isinstance(runtime, dict):
+        return [0.0 for _ in feature_rows]
+    grouped_means = runtime.get("grouped_means")
+    fallback = runtime.get("fallback_mean", 0.0)
+    if not isinstance(grouped_means, dict):
+        return [float(fallback) for _ in feature_rows]
+    preds: list[float] = []
+    for row in feature_rows:
+        key = f"{row['day_of_week']}|{row['hour']}|{row['resource_type']}"
+        preds.append(float(grouped_means.get(key, fallback)))
+    return preds
+
+
 def forecast_by_hour(session: Session, target_date: date, resource_type: str, building: str | None = None) -> list[dict]:
-    model, vectorizer = load_model_artifact()
+    metadata = load_metadata()
     feature_rows = build_hourly_inference_rows(session, target_date, resource_type, building)
-    matrix = vectorizer.transform(feature_rows)
-    predictions = model.predict(matrix)
+    if metadata.get("selected_model") == "baseline":
+        predictions = _baseline_predictions(feature_rows, metadata)
+    else:
+        model, vectorizer = load_model_artifact()
+        matrix = vectorizer.transform(feature_rows)
+        predictions = model.predict(matrix)
     return [{"hour": int(row["hour"]), "predicted_demand": max(0.0, float(round(pred, 3)))} for row, pred in zip(feature_rows, predictions)]

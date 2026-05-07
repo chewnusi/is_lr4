@@ -5,7 +5,7 @@
 
 <section class="form-section" aria-labelledby="create-resource-heading">
   <h2 id="create-resource-heading">New resource</h2>
-  <form method="post" action="/ui/resources?user_id={{ current_user.id }}" class="stacked-form">
+  <form method="post" action="/ui/resources" class="stacked-form">
     <input type="hidden" name="page" value="{{ pagination.page }}">
     <label>Name <input type="text" name="name" required></label>
     <label>Type <input type="text" name="resource_type" required placeholder="e.g. meeting_room"></label>
@@ -43,8 +43,8 @@
         </dd>
       </dl>
       <div class="card-footer">
-        <a class="btn btn-secondary" href="/ui/resources/{{ r.id }}/edit?user_id={{ current_user.id }}">Edit</a>
-        <form method="post" action="/ui/resources/{{ r.id }}/delete?user_id={{ current_user.id }}" class="inline-form" onsubmit="return confirm('Delete this resource?');">
+        <a class="btn btn-secondary" href="/ui/resources/{{ r.id }}/edit">Edit</a>
+        <form method="post" action="/ui/resources/{{ r.id }}/delete" class="inline-form" onsubmit="return confirm('Delete this resource?');">
           <input type="hidden" name="page" value="{{ pagination.page }}">
           <button type="submit" class="btn btn-danger">Delete</button>
         </form>
@@ -55,13 +55,13 @@
 
   <nav class="pagination" aria-label="Resource pages">
     {% if pagination.has_prev %}
-    <a href="/ui/resources?page={{ pagination.page - 1 }}&user_id={{ current_user.id }}">Previous</a>
+    <a href="/ui/resources?page={{ pagination.page - 1 }}">Previous</a>
     {% else %}
     <span class="nav-disabled" aria-disabled="true">Previous</span>
     {% endif %}
 
     {% if pagination.has_next %}
-    <a href="/ui/resources?page={{ pagination.page + 1 }}&user_id={{ current_user.id }}">Next</a>
+    <a href="/ui/resources?page={{ pagination.page + 1 }}">Next</a>
     {% else %}
     <span class="nav-disabled" aria-disabled="true">Next</span>
     {% endif %}

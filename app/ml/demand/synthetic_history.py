@@ -10,9 +10,10 @@ from datetime import UTC, datetime, timedelta
 from sqlmodel import Session, delete, select
 
 from app.db import engine
-from app.models_db import Booking, BookingPurposeCategory, BookingStatus, Resource
+from app.models_db import Booking, BookingPurposeCategory, BookingStatus, Resource, User, UserRole
 
 SYNTHETIC_ID_PREFIX = "synthetic-bk-"
+SYNTHETIC_USER_PREFIX = "synthetic-user-"
 
 
 @dataclass
@@ -28,15 +29,6 @@ PATTERNS_BY_RESOURCE_TYPE: dict[str, _Pattern] = {
     "lab": _Pattern(BookingPurposeCategory.workshop, {BookingStatus.approved: 75, BookingStatus.pending: 15, BookingStatus.cancelled: 10}, [10, 11, 12, 13, 14, 15, 16], [60, 90, 120, 180]),
     "car": _Pattern(BookingPurposeCategory.client_meeting, {BookingStatus.approved: 65, BookingStatus.pending: 20, BookingStatus.cancelled: 15}, [7, 8, 9, 10, 11], [60, 120, 180, 240]),
     "equipment": _Pattern(BookingPurposeCategory.maintenance, {BookingStatus.approved: 55, BookingStatus.pending: 20, BookingStatus.cancelled: 25}, [13, 14, 15, 16, 17, 18], [30, 60, 90]),
-    "auditorium": _Pattern(BookingPurposeCategory.event, {BookingStatus.approved: 72, BookingStatus.pending: 16, BookingStatus.cancelled: 12}, [11, 12, 13, 14, 15, 16, 17, 18], [60, 120, 180]),
-    "studio": _Pattern(BookingPurposeCategory.interview, {BookingStatus.approved: 62, BookingStatus.pending: 24, BookingStatus.cancelled: 14}, [9, 10, 11, 12, 13, 14, 15, 16], [30, 60, 90, 120]),
-    "training_room": _Pattern(BookingPurposeCategory.training, {BookingStatus.approved: 77, BookingStatus.pending: 14, BookingStatus.cancelled: 9}, [10, 11, 12, 13, 14, 15], [60, 90, 120, 180]),
-    "coworking_space": _Pattern(BookingPurposeCategory.planning, {BookingStatus.approved: 66, BookingStatus.pending: 22, BookingStatus.cancelled: 12}, [9, 10, 11, 12, 13, 14, 15, 16], [60, 120, 180, 240]),
-    "parking_slot": _Pattern(BookingPurposeCategory.client_meeting, {BookingStatus.approved: 68, BookingStatus.pending: 18, BookingStatus.cancelled: 14}, [7, 8, 9, 10, 11, 16, 17, 18], [120, 180, 240, 300]),
-    "vehicle_electric": _Pattern(BookingPurposeCategory.support, {BookingStatus.approved: 63, BookingStatus.pending: 22, BookingStatus.cancelled: 15}, [7, 8, 9, 10, 11, 12], [60, 120, 180, 240]),
-    "vehicle_van": _Pattern(BookingPurposeCategory.maintenance, {BookingStatus.approved: 59, BookingStatus.pending: 24, BookingStatus.cancelled: 17}, [8, 9, 10, 14, 15, 16, 17], [90, 120, 180, 240]),
-    "computer_lab": _Pattern(BookingPurposeCategory.training, {BookingStatus.approved: 74, BookingStatus.pending: 16, BookingStatus.cancelled: 10}, [9, 10, 11, 12, 13, 14, 15, 16], [60, 90, 120]),
-    "workshop_space": _Pattern(BookingPurposeCategory.workshop, {BookingStatus.approved: 73, BookingStatus.pending: 17, BookingStatus.cancelled: 10}, [10, 11, 12, 13, 14, 15, 16], [90, 120, 180]),
 }
 
 
@@ -46,6 +38,7 @@ def _pick_status(weights: dict[BookingStatus, int]) -> BookingStatus:
 
 
 def _pattern_for_resource_type(resource_type: str) -> _Pattern:
+    resource_type = (resource_type or "").lower()
     if resource_type in PATTERNS_BY_RESOURCE_TYPE:
         return PATTERNS_BY_RESOURCE_TYPE[resource_type]
     if "meeting" in resource_type or "room" in resource_type:
@@ -67,6 +60,23 @@ def clear_synthetic_bookings(session: Session) -> int:
     return len(rows)
 
 
+def _ensure_synthetic_users(session: Session, minimum_count: int = 50) -> list[str]:
+    users = session.exec(select(User.id).where(User.role == UserRole.employee, User.is_active == True)).all()  # noqa: E712
+    existing = list(users)
+    if len(existing) >= minimum_count:
+        return existing
+    next_index = 1
+    while len(existing) < minimum_count:
+        candidate_id = f"{SYNTHETIC_USER_PREFIX}{next_index:03d}"
+        next_index += 1
+        if candidate_id in existing:
+            continue
+        session.add(User(id=candidate_id, name=f"Synthetic User {len(existing) + 1:03d}", role=UserRole.employee))
+        existing.append(candidate_id)
+    session.commit()
+    return existing
+
+
 def generate_synthetic_history(count: int = 800, months_back: int = 3, seed: int = 42, reset: bool = False) -> int:
     random.seed(seed)
     now = datetime.now(UTC).replace(tzinfo=None)
@@ -76,11 +86,18 @@ def generate_synthetic_history(count: int = 800, months_back: int = 3, seed: int
         resources = session.exec(select(Resource).where(Resource.is_active == True)).all()  # noqa: E712
         if not resources:
             raise RuntimeError("No active resources found. Seed resources before generating synthetic history.")
-        users = ["demo-employee", "demo-admin"]
+        users = _ensure_synthetic_users(session, minimum_count=50)
         if reset:
             clear_synthetic_bookings(session)
-        existing_ids = set(session.exec(select(Booking.id).where(Booking.id.startswith(SYNTHETIC_ID_PREFIX))).all())
-        next_index = len(existing_ids) + 1
+        existing_ids = session.exec(select(Booking.id).where(Booking.id.startswith(SYNTHETIC_ID_PREFIX))).all()
+        next_index = 1
+        for booking_id in existing_ids:
+            try:
+                suffix = int(booking_id.removeprefix(SYNTHETIC_ID_PREFIX))
+            except ValueError:
+                continue
+            if suffix >= next_index:
+                next_index = suffix + 1
         for _ in range(count):
             resource = random.choice(resources)
             pattern = _pattern_for_resource_type(resource.type)
@@ -94,6 +111,7 @@ def generate_synthetic_history(count: int = 800, months_back: int = 3, seed: int
             lead_days = random.randint(0, 14)
             created_at = max(horizon_start, start_time - timedelta(days=lead_days, hours=random.randint(0, 8)))
             attendees_count = random.randint(1, max(1, resource.capacity))
+            # Collision-safe even when synthetic IDs are sparse due to partial deletes.
             booking_id = f"{SYNTHETIC_ID_PREFIX}{next_index:05d}"
             next_index += 1
             booking = Booking(

@@ -75,7 +75,9 @@ def _write_reco_model(tmp_path, monkeypatch):
     monkeypatch.setenv("RECO_MODEL_META_PATH", str(meta_path))
 
 
-def test_recommendation_model_missing_returns_503(client):
+def test_recommendation_model_missing_returns_503(client, tmp_path, monkeypatch):
+    monkeypatch.setenv("RECO_MODEL_PATH", str(tmp_path / "missing_reco_model.joblib"))
+    monkeypatch.setenv("RECO_MODEL_META_PATH", str(tmp_path / "missing_reco_model.meta.json"))
     response = client.post(
         "/recommendations/booking-options?user_id=demo-employee",
         json={
@@ -112,3 +114,6 @@ def test_recommendation_api_returns_ranked_options(client, tmp_path, monkeypatch
     assert len(payload["recommendations"]) <= 3
     if payload["recommendations"]:
         assert "score" in payload["recommendations"][0]
+        assert "cancellation_risk" in payload["recommendations"][0]
+    if len(payload["recommendations"]) >= 2:
+        assert len({row["resource_id"] for row in payload["recommendations"]}) >= 2

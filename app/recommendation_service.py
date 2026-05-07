@@ -8,8 +8,9 @@ from app.schemas import RecommendationRequest
 from sqlmodel import Session
 
 
-def get_booking_recommendations(session: Session, payload: RecommendationRequest) -> dict:
+def get_booking_recommendations(session: Session, payload: RecommendationRequest, actor_user_id: str) -> dict:
     request = RecoRequestFeatures(
+        user_id=actor_user_id,
         resource_type=payload.resource_type,
         preferred_start_time=payload.preferred_start_time,
         duration_minutes=payload.duration_minutes,
@@ -17,5 +18,5 @@ def get_booking_recommendations(session: Session, payload: RecommendationRequest
         purpose_category=payload.purpose_category,
         building=payload.building,
     )
-    recommendations = rank_candidates(session, request, top_n=payload.top_n)
+    recommendations = rank_candidates(session, request, user_id=actor_user_id, top_n=payload.top_n)
     return {"recommendations": recommendations, "model_info": load_metadata()}

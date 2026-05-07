@@ -10,6 +10,7 @@ from sqlmodel import Session, SQLModel, create_engine
 from app.db import get_session
 from app.main import app
 from app.models_db import User, UserRole
+from app.security import hash_password
 
 
 @pytest.fixture()
@@ -21,8 +22,8 @@ def db_engine():
     )
     SQLModel.metadata.create_all(engine)
     with Session(engine) as session:
-        session.add(User(id="demo-employee", name="Demo Employee", role=UserRole.employee))
-        session.add(User(id="demo-admin", name="Demo Admin", role=UserRole.admin))
+        session.add(User(id="demo-employee", name="Demo Employee", role=UserRole.employee, password_hash=hash_password("ChangeMe123!"), is_active=True))
+        session.add(User(id="demo-admin", name="Demo Admin", role=UserRole.admin, password_hash=hash_password("ChangeMe123!"), is_active=True))
         session.commit()
     return engine
 

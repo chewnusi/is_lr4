@@ -8,7 +8,6 @@
   <p class="empty">Admin role required to access analytics.</p>
   {% else %}
   <form method="get" action="/ui/analytics" class="filters">
-    <input type="hidden" name="user_id" value="{{ current_user.id }}">
     <label>Resource type
       <select name="resource_type" required>
         <option value="">Select type</option>

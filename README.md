@@ -42,13 +42,16 @@ Open:
 
 ## Demo users
 
-- `demo-employee` (employee)
 - `demo-admin` (admin)
+- `demo-employee` (employee)
+- `demo-employee-001` .. `demo-employee-050` (employee pool)
 
-Switch user quickly via query param, for example:
-- `/ui/dashboard?user_id=demo-admin`
+Default temporary password for seeded users:
 
-For API calls, also pass `?user_id=demo-admin` (or `demo-employee`).
+- `ChangeMe123!` (override via `SEED_TEMP_PASSWORD`)
+
+UI authentication uses `/ui/login` with session cookie.
+For API/testing convenience, you can still pass `?user_id=<id>`.
 
 ## Docker
 
@@ -87,12 +90,12 @@ Model artifacts are saved to:
 Forecast API (admin only):
 
 ```bash
-GET /analytics/demand-forecast?resource_type=meeting_room&date=2026-04-10&building=Building%20A&user_id=demo-admin
+GET /analytics/demand-forecast?resource_type=meeting_room&date=2026-04-10&building=Building%20A
 ```
 
 UI Analytics page:
 
-- `/ui/analytics?user_id=demo-admin`
+- `/ui/analytics` (admin login required)
 
 ## Booking Recommendations (ML)
 
@@ -114,7 +117,28 @@ Recommendation endpoint:
 POST /recommendations/booking-options
 ```
 
+Cancellation risk endpoint:
+
+```bash
+POST /analytics/cancellation-risk
+```
+
 Recommendation model artifacts:
 
 - `app/ml/recommendation/model_store/reco_model.joblib`
 - `app/ml/recommendation/model_store/reco_model.meta.json`
+
+## Retraining Workflow (User-Linked)
+
+If users/bookings changed or new real data was collected, retrain in this order:
+
+```bash
+python -m app.ml.generate_all_synthetic --history-count 12000 --months-back 9 --reset-history --reco-samples 8000 --train-risk
+python -m app.ml.recommendation.train_model
+python -m app.ml.demand.train_model
+python -m app.ml.cancellation_risk.train_model
+```
+
+If you already used `--train-risk`, the last command is optional.
+
+SQLite is fully valid for accumulating real historical data over time. You can keep training from collected SQLite records; later migration to Postgres is straightforward because feature extraction lives at app/ML layer.

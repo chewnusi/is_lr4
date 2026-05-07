@@ -80,3 +80,11 @@ For a fresh retrain cycle:
 1. regenerate synthetic history (`--reset`)
 2. rerun `python -m app.ml.demand.train_model`
 
+## Unified Synthetic Generator
+
+If you want one command to regenerate demand history, recommendation CSV, and risk model:
+
+```bash
+python -m app.ml.generate_all_synthetic --history-count 12000 --months-back 9 --reset-history --reco-samples 8000 --train-risk
+```
+

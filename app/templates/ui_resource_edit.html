@@ -3,11 +3,11 @@
 {% block tagline %}Update fields and save.{% endblock %}
 {% block content %}
 
-<p class="back-link"><a href="/ui/resources?user_id={{ current_user.id }}">← Back to resources</a></p>
+<p class="back-link"><a href="/ui/resources">← Back to resources</a></p>
 
 <section class="form-section" aria-labelledby="edit-heading">
   <h2 id="edit-heading">Edit resource</h2>
-  <form method="post" action="/ui/resources/{{ resource.id }}/edit?user_id={{ current_user.id }}" class="stacked-form">
+  <form method="post" action="/ui/resources/{{ resource.id }}/edit" class="stacked-form">
     <label>Name <input type="text" name="name" value="{{ resource.name }}" required></label>
     <label>Type <input type="text" name="resource_type" value="{{ resource.type }}" required></label>
     <label>Location <input type="text" name="location" value="{{ resource.location }}" required></label>
@@ -20,7 +20,7 @@
     </label>
     <div class="form-actions">
       <button type="submit" class="btn btn-primary">Save changes</button>
-      <a class="btn btn-secondary" href="/ui/resources?user_id={{ current_user.id }}">Cancel</a>
+      <a class="btn btn-secondary" href="/ui/resources">Cancel</a>
     </div>
   </form>
 </section>

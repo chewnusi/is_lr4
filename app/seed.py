@@ -14,6 +14,7 @@ from app.models_db import Booking, BookingStatus, Resource
 # Must match seeded resource/booking ids so re-runs replace demo data only.
 DEMO_ID_PREFIX = "demo-seed-"
 SEED_RESOURCES_FILE = Path(__file__).resolve().parent / "data" / "seed_resources.json"
+TARGET_DEMO_RESOURCE_COUNT = 150
 
 
 def _is_demo_resource_id(resource_id: str) -> bool:
@@ -42,10 +43,32 @@ def _load_seed_resources() -> list[dict]:
     return data
 
 
+def _expanded_seed_resources(resource_defs: list[dict], target_count: int = TARGET_DEMO_RESOURCE_COUNT) -> list[dict]:
+    """Expand base seed definitions up to target_count with deterministic near-duplicates."""
+    if len(resource_defs) >= target_count:
+        return resource_defs
+    if not resource_defs:
+        raise ValueError("seed_resources.json must contain at least one resource definition")
+
+    expanded = list(resource_defs)
+    clone_index = 1
+    while len(expanded) < target_count:
+        template = resource_defs[(len(expanded) - len(resource_defs)) % len(resource_defs)]
+        clone = dict(template)
+        clone["name"] = f"{template.get('name', 'Resource')} Clone {clone_index:03d}"
+        base_location = template.get("location") or "Generated location"
+        clone["location"] = f"{base_location} / clone {clone_index:03d}"
+        description = template.get("description") or "Auto-generated similar resource"
+        clone["description"] = f"{description} (auto-generated clone)"
+        expanded.append(clone)
+        clone_index += 1
+    return expanded
+
+
 def seed_demo_data(sql_engine=engine) -> None:
     with Session(sql_engine) as session:
         clear_demo_data(session)
-        resource_defs = _load_seed_resources()
+        resource_defs = _expanded_seed_resources(_load_seed_resources())
         resources: list[Resource] = []
         for index, resource in enumerate(resource_defs, start=1):
             resources.append(Resource(id=_resource_id(index), **resource))

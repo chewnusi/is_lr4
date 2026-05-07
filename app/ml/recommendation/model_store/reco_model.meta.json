@@ -1,0 +1,13 @@
+{
+  "trained_at": "2026-05-07T16:05:13.716012+00:00",
+  "model_version": "v1",
+  "dataset_path": "/home/chewnusi/is_lr4/app/ml/recommendation/reco_training_data.csv",
+  "rows_total": 480000,
+  "metrics": {
+    "accuracy": 0.7628958333333333,
+    "precision": 0.7656578752829052,
+    "recall": 0.9689546481670721,
+    "f1": 0.8553930599850069,
+    "precision_at_3": 0.9801297648012977
+  }
+}

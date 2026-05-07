@@ -12,7 +12,7 @@ from sqlmodel import Session, select
 
 from app.db import engine
 from app.ml.recommendation.feature_builder import CandidateOption, RecommendationRequest, candidate_to_features, check_availability, generate_candidate_offsets
-from app.models_db import Booking, Resource
+from app.models_db import Booking, Resource, User, UserRole
 
 OUTPUT_PATH = Path(__file__).resolve().parent / "reco_training_data.csv"
 
@@ -50,8 +50,11 @@ def generate_reco_synthetic_dataset(samples: int = 1200, seed: int = 42, output_
     with Session(engine) as session:
         resources = session.exec(select(Resource).where(Resource.is_active == True)).all()  # noqa: E712
         bookings = session.exec(select(Booking)).all()
+        users = session.exec(select(User).where(User.is_active == True, User.role == UserRole.employee)).all()  # noqa: E712
     if not resources:
         raise RuntimeError("No active resources found.")
+    if not users:
+        raise RuntimeError("No active employee users found.")
 
     popularity = _popularity_by_resource(bookings)
     hourly_demand = _demand_by_hour(bookings)
@@ -64,7 +67,9 @@ def generate_reco_synthetic_dataset(samples: int = 1200, seed: int = 42, output_
         duration = random.choice([30, 60, 90, 120, 180])
         attendees = random.randint(1, 16)
         req_building = random.choice([resource.building for resource in resources if resource.building] + [None])
+        request_user = random.choice(users)
         request = RecommendationRequest(
+            user_id=request_user.id,
             resource_type=target_resource_type,
             preferred_start_time=preferred_start,
             duration_minutes=duration,

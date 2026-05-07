@@ -45,12 +45,12 @@ def test_booking_crud_and_transitions(client, booking_payload):
 def test_conflict_detection(client, booking_payload):
     rid = _resource(client)
     booking_payload["resource_id"] = rid
-    first = client.post("/bookings?user_id=demo-employee", json=booking_payload).json()
+    first_response = client.post("/bookings?user_id=demo-employee", json=booking_payload)
+    assert first_response.status_code == 201
+    first = first_response.json()
     conflict_payload = dict(booking_payload)
     conflict_payload["start_time"] = booking_payload["start_time"]
     conflict_payload["end_time"] = booking_payload["end_time"]
-    second = client.post("/bookings?user_id=demo-employee", json=conflict_payload).json()
-
-    assert client.patch(f"/bookings/{first['id']}/approve?user_id=demo-admin").status_code == 200
-    conflict = client.patch(f"/bookings/{second['id']}/approve?user_id=demo-admin")
-    assert conflict.status_code == 400
+    second_response = client.post("/bookings?user_id=demo-employee", json=conflict_payload)
+    assert second_response.status_code == 400
+    assert "conflict" in second_response.json()["detail"].lower()
