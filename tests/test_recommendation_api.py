@@ -4,6 +4,7 @@ import json
 from datetime import datetime, timedelta
 
 import joblib
+import numpy as np
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.feature_extraction import DictVectorizer
 
@@ -117,3 +118,58 @@ def test_recommendation_api_returns_ranked_options(client, tmp_path, monkeypatch
         assert "cancellation_risk" in payload["recommendations"][0]
     if len(payload["recommendations"]) >= 2:
         assert len({row["resource_id"] for row in payload["recommendations"]}) >= 2
+
+
+class _DummyVectorizer:
+    def transform(self, rows):
+        return rows
+
+
+class _DummyModel:
+    def predict_proba(self, rows):
+        probs = []
+        for row in rows:
+            time_bonus = max(0.0, 1.0 - (row["time_difference_minutes"] / 180.0))
+            capacity_bonus = max(0.0, 1.0 - (abs(row["capacity_gap"]) / 20.0))
+            score = min(0.95, max(0.05, 0.35 + (0.35 * time_bonus) + (0.30 * capacity_bonus)))
+            probs.append([1.0 - score, score])
+        return np.array(probs, dtype=float)
+
+
+def test_recommendation_known_expected_order_with_risk_penalty(client, monkeypatch):
+    import app.ml.recommendation.inference as reco_inference
+
+    small = client.post(
+        "/resources?user_id=demo-admin",
+        json={"name": "Small Risky Room", "type": "meeting_room", "location": "HQ", "building": "Building A", "capacity": 6, "is_active": True},
+    ).json()
+    large = client.post(
+        "/resources?user_id=demo-admin",
+        json={"name": "Large Safe Room", "type": "meeting_room", "location": "HQ", "building": "Building A", "capacity": 20, "is_active": True},
+    ).json()
+
+    monkeypatch.setattr(reco_inference, "load_model_artifact", lambda: (_DummyModel(), _DummyVectorizer()))
+    monkeypatch.setattr(
+        reco_inference,
+        "predict_risk_for_rows",
+        lambda rows: [min(0.99, max(0.01, float(row["capacity_utilization"]) * 0.9)) for row in rows],
+    )
+
+    response = client.post(
+        "/recommendations/booking-options?user_id=demo-employee",
+        json={
+            "resource_type": "meeting_room",
+            "preferred_start_time": (datetime.now() + timedelta(days=2)).replace(minute=0, second=0, microsecond=0).isoformat(),
+            "duration_minutes": 60,
+            "attendees_count": 6,
+            "purpose_category": "meeting",
+            "building": "Building A",
+            "top_n": 2,
+        },
+    )
+    assert response.status_code == 200
+    recs = response.json()["recommendations"]
+    assert len(recs) == 2
+    assert {recs[0]["resource_id"], recs[1]["resource_id"]} == {small["id"], large["id"]}
+    assert recs[0]["resource_id"] == large["id"]
+    assert recs[0]["cancellation_risk"] < recs[1]["cancellation_risk"]

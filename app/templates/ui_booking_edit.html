@@ -60,21 +60,32 @@
         if (el) el.value = value;
       }
 
+      function calculateDurationMinutes() {
+        const start = getVal("start_time");
+        const end = getVal("end_time");
+        if (!start || !end) return null;
+        const startDate = new Date(start);
+        const endDate = new Date(end);
+        const minutes = Math.round((endDate.getTime() - startDate.getTime()) / 60000);
+        return minutes > 0 ? minutes : null;
+      }
+
       btn.addEventListener("click", async function () {
         const resourceSelect = form.querySelector('[name="resource_id"]');
         const selectedOption = resourceSelect ? resourceSelect.options[resourceSelect.selectedIndex] : null;
         const resourceType = selectedOption && selectedOption.textContent ? selectedOption.textContent.split(" — ")[1]?.split(" ")[0] || "meeting_room" : "meeting_room";
+        const duration = calculateDurationMinutes();
         const payload = {
           resource_type: resourceType,
           preferred_start_time: getVal("start_time") ? getVal("start_time") + ":00" : "",
-          duration_minutes: 60,
+          duration_minutes: duration || 60,
           attendees_count: parseInt(getVal("attendees_count") || "1", 10),
           purpose_category: getVal("purpose_category") || "other",
           building: null,
           top_n: 3
         };
-        if (!payload.preferred_start_time) {
-          output.textContent = "Pick a start time first.";
+        if (!payload.preferred_start_time || !duration) {
+          output.textContent = "Pick valid start and end time first.";
           return;
         }
         output.textContent = "Loading recommendations...";

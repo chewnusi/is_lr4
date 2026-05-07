@@ -15,6 +15,11 @@
     <div id="recommendations-list"></div>
   </div>
   <form method="post" action="/ui/bookings" class="stacked-form">
+    <input type="hidden" name="page" value="{{ pagination.page }}">
+    <input type="hidden" name="status_filter" value="{{ filters.status }}">
+    <input type="hidden" name="resource_type_filter" value="{{ filters.resource_type }}">
+    <input type="hidden" name="date_filter" value="{{ filters.date }}">
+    <input type="hidden" name="user_filter" value="{{ filters.user }}">
     <label>Resource
       <select name="resource_id" required>
         <option value="" disabled selected>Choose a resource…</option>
@@ -67,21 +72,38 @@
         if (el) el.value = val;
       }
 
+      function calculateDurationMinutes() {
+        const start = value("start_time");
+        const end = value("end_time");
+        if (!start || !end) return null;
+        const startDate = new Date(start);
+        const endDate = new Date(end);
+        const minutes = Math.round((endDate.getTime() - startDate.getTime()) / 60000);
+        return minutes > 0 ? minutes : null;
+      }
+
       btn.addEventListener("click", async function () {
         const resourceSelect = form.querySelector('[name="resource_id"]');
         const selectedOption = resourceSelect ? resourceSelect.options[resourceSelect.selectedIndex] : null;
-        const resourceType = selectedOption && selectedOption.textContent ? selectedOption.textContent.split(" — ")[1]?.split(" ")[0] || "meeting_room" : "meeting_room";
+        if (!selectedOption || !selectedOption.value) {
+          output.textContent = "Select a resource first.";
+          return;
+        }
+        const selectedResourceId = selectedOption.value;
+        const selectedResourceMeta = (selectedOption.textContent || "").split(" — ")[1] || "";
+        const resourceType = selectedResourceMeta.split(" ")[0] || "meeting_room";
+        const duration = calculateDurationMinutes();
         const payload = {
           resource_type: resourceType,
           preferred_start_time: value("start_time") ? value("start_time") + ":00" : "",
-          duration_minutes: 60,
+          duration_minutes: duration || 60,
           attendees_count: parseInt(value("attendees_count") || "1", 10),
           purpose_category: value("purpose_category") || "other",
           building: null,
           top_n: 3
         };
-        if (!payload.preferred_start_time) {
-          output.textContent = "Pick a start time first.";
+        if (!payload.preferred_start_time || !duration) {
+          output.textContent = "Pick valid start and end time first.";
           return;
         }
         output.textContent = "Loading recommendations...";
@@ -191,13 +213,28 @@
           <td>{{ b.purpose }}</td>
           <td class="row-actions">
             <form method="post" action="/ui/bookings/{{ b.id }}/approve" class="inline-form">
+              <input type="hidden" name="page" value="{{ pagination.page }}">
+              <input type="hidden" name="status_filter" value="{{ filters.status }}">
+              <input type="hidden" name="resource_type_filter" value="{{ filters.resource_type }}">
+              <input type="hidden" name="date_filter" value="{{ filters.date }}">
+              <input type="hidden" name="user_filter" value="{{ filters.user }}">
               <button type="submit" class="btn btn-sm btn-approve">Approve</button>
             </form>
             <form method="post" action="/ui/bookings/{{ b.id }}/cancel" class="inline-form">
+              <input type="hidden" name="page" value="{{ pagination.page }}">
+              <input type="hidden" name="status_filter" value="{{ filters.status }}">
+              <input type="hidden" name="resource_type_filter" value="{{ filters.resource_type }}">
+              <input type="hidden" name="date_filter" value="{{ filters.date }}">
+              <input type="hidden" name="user_filter" value="{{ filters.user }}">
               <button type="submit" class="btn btn-sm btn-cancel">Cancel</button>
             </form>
             <a class="btn btn-sm btn-secondary" href="/ui/bookings/{{ b.id }}/edit">Edit</a>
             <form method="post" action="/ui/bookings/{{ b.id }}/delete" class="inline-form" onsubmit="return confirm('Delete this booking?');">
+              <input type="hidden" name="page" value="{{ pagination.page }}">
+              <input type="hidden" name="status_filter" value="{{ filters.status }}">
+              <input type="hidden" name="resource_type_filter" value="{{ filters.resource_type }}">
+              <input type="hidden" name="date_filter" value="{{ filters.date }}">
+              <input type="hidden" name="user_filter" value="{{ filters.user }}">
               <button type="submit" class="btn btn-sm btn-danger">Delete</button>
             </form>
           </td>

@@ -59,6 +59,28 @@ def _purpose_categories() -> list[str]:
     return [category.value for category in BookingPurposeCategory]
 
 
+def _bookings_redirect(
+    notice: str,
+    message: str,
+    *,
+    page: int = 1,
+    status_filter: str = "",
+    resource_type: str = "",
+    date: str = "",
+    user_filter: str = "",
+) -> RedirectResponse:
+    return _redirect_path(
+        "/ui/bookings",
+        notice,
+        message,
+        page=str(max(1, page)),
+        status_filter=status_filter,
+        resource_type=resource_type,
+        date=date,
+        user_filter=user_filter,
+    )
+
+
 @router.get("/ui", response_class=Response)
 def ui_root() -> RedirectResponse:
     return RedirectResponse("/ui/dashboard", status_code=status.HTTP_302_FOUND)
@@ -359,6 +381,11 @@ def ui_bookings_create(
     purpose_category: str = Form(default=""),
     attendees_count: int | None = Form(default=None),
     user_id: str = Form(...),
+    page: int = Form(default=1),
+    status_filter: str = Form(default=""),
+    resource_type_filter: str = Form(default=""),
+    date_filter: str = Form(default=""),
+    user_filter: str = Form(default=""),
     session: Session = Depends(get_session),
     actor: User = Depends(get_current_user),
 ) -> RedirectResponse:
@@ -373,14 +400,46 @@ def ui_bookings_create(
             attendees_count=attendees_count,
         )
     except ValidationError:
-        return _redirect_path("/ui/bookings", FLASH_ERR, "Could not create booking: fill all fields correctly.")
+        return _bookings_redirect(
+            FLASH_ERR,
+            "Could not create booking: fill all fields correctly.",
+            page=page,
+            status_filter=status_filter,
+            resource_type=resource_type_filter,
+            date=date_filter,
+            user_filter=user_filter,
+        )
     except ValueError:
-        return _redirect_path("/ui/bookings", FLASH_ERR, "Invalid datetime format.")
+        return _bookings_redirect(
+            FLASH_ERR,
+            "Invalid datetime format.",
+            page=page,
+            status_filter=status_filter,
+            resource_type=resource_type_filter,
+            date=date_filter,
+            user_filter=user_filter,
+        )
     try:
         services.create_booking(session, payload, actor)
     except services.BadRequestError as e:
-        return _redirect_path("/ui/bookings", FLASH_ERR, e.message)
-    return _redirect_path("/ui/bookings", FLASH_OK, "Booking created.")
+        return _bookings_redirect(
+            FLASH_ERR,
+            e.message,
+            page=page,
+            status_filter=status_filter,
+            resource_type=resource_type_filter,
+            date=date_filter,
+            user_filter=user_filter,
+        )
+    return _bookings_redirect(
+        FLASH_OK,
+        "Booking created.",
+        page=page,
+        status_filter=status_filter,
+        resource_type=resource_type_filter,
+        date=date_filter,
+        user_filter=user_filter,
+    )
 
 
 @router.get("/ui/bookings/{booking_id}/edit", response_class=Response)
@@ -461,48 +520,135 @@ def ui_booking_edit_submit(
 def ui_booking_delete(
     _request: Request,
     booking_id: str,
+    page: int = Form(default=1),
+    status_filter: str = Form(default=""),
+    resource_type_filter: str = Form(default=""),
+    date_filter: str = Form(default=""),
+    user_filter: str = Form(default=""),
     session: Session = Depends(get_session),
     actor: User = Depends(get_current_user),
 ) -> RedirectResponse:
     try:
         services.delete_booking(session, booking_id, actor)
     except services.NotFoundError:
-        return _redirect_path("/ui/bookings", FLASH_ERR, "Booking not found.")
+        return _bookings_redirect(
+            FLASH_ERR,
+            "Booking not found.",
+            page=page,
+            status_filter=status_filter,
+            resource_type=resource_type_filter,
+            date=date_filter,
+            user_filter=user_filter,
+        )
     except services.BadRequestError as exc:
-        return _redirect_path("/ui/bookings", FLASH_ERR, exc.message)
-    return _redirect_path("/ui/bookings", FLASH_OK, "Booking deleted.")
+        return _bookings_redirect(
+            FLASH_ERR,
+            exc.message,
+            page=page,
+            status_filter=status_filter,
+            resource_type=resource_type_filter,
+            date=date_filter,
+            user_filter=user_filter,
+        )
+    return _bookings_redirect(
+        FLASH_OK,
+        "Booking deleted.",
+        page=page,
+        status_filter=status_filter,
+        resource_type=resource_type_filter,
+        date=date_filter,
+        user_filter=user_filter,
+    )
 
 
 @router.post("/ui/bookings/{booking_id}/approve")
 def ui_booking_approve(
     _request: Request,
     booking_id: str,
+    page: int = Form(default=1),
+    status_filter: str = Form(default=""),
+    resource_type_filter: str = Form(default=""),
+    date_filter: str = Form(default=""),
+    user_filter: str = Form(default=""),
     session: Session = Depends(get_session),
     actor: User = Depends(get_current_user),
 ) -> RedirectResponse:
     try:
         services.approve_booking(session, booking_id, actor)
     except services.NotFoundError:
-        return _redirect_path("/ui/bookings", FLASH_ERR, "Booking not found.")
+        return _bookings_redirect(
+            FLASH_ERR,
+            "Booking not found.",
+            page=page,
+            status_filter=status_filter,
+            resource_type=resource_type_filter,
+            date=date_filter,
+            user_filter=user_filter,
+        )
     except services.BadRequestError as e:
-        return _redirect_path("/ui/bookings", FLASH_ERR, e.message)
-    return _redirect_path("/ui/bookings", FLASH_OK, "Booking approved.")
+        return _bookings_redirect(
+            FLASH_ERR,
+            e.message,
+            page=page,
+            status_filter=status_filter,
+            resource_type=resource_type_filter,
+            date=date_filter,
+            user_filter=user_filter,
+        )
+    return _bookings_redirect(
+        FLASH_OK,
+        "Booking approved.",
+        page=page,
+        status_filter=status_filter,
+        resource_type=resource_type_filter,
+        date=date_filter,
+        user_filter=user_filter,
+    )
 
 
 @router.post("/ui/bookings/{booking_id}/cancel")
 def ui_booking_cancel(
     _request: Request,
     booking_id: str,
+    page: int = Form(default=1),
+    status_filter: str = Form(default=""),
+    resource_type_filter: str = Form(default=""),
+    date_filter: str = Form(default=""),
+    user_filter: str = Form(default=""),
     session: Session = Depends(get_session),
     actor: User = Depends(get_current_user),
 ) -> RedirectResponse:
     try:
         services.cancel_booking(session, booking_id, actor)
     except services.NotFoundError:
-        return _redirect_path("/ui/bookings", FLASH_ERR, "Booking not found.")
+        return _bookings_redirect(
+            FLASH_ERR,
+            "Booking not found.",
+            page=page,
+            status_filter=status_filter,
+            resource_type=resource_type_filter,
+            date=date_filter,
+            user_filter=user_filter,
+        )
     except services.BadRequestError as exc:
-        return _redirect_path("/ui/bookings", FLASH_ERR, exc.message)
-    return _redirect_path("/ui/bookings", FLASH_OK, "Booking cancelled.")
+        return _bookings_redirect(
+            FLASH_ERR,
+            exc.message,
+            page=page,
+            status_filter=status_filter,
+            resource_type=resource_type_filter,
+            date=date_filter,
+            user_filter=user_filter,
+        )
+    return _bookings_redirect(
+        FLASH_OK,
+        "Booking cancelled.",
+        page=page,
+        status_filter=status_filter,
+        resource_type=resource_type_filter,
+        date=date_filter,
+        user_filter=user_filter,
+    )
 
 
 @router.get("/ui/calendar", response_class=Response)
