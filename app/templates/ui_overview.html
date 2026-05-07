@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block tagline %}Read-only overview: all resources and bookings by date.{% endblock %}
+{% block tagline %}Dashboard with resources and booking timeline.{% endblock %}
 {% block content %}
 <section aria-labelledby="resources-heading">
   <h2 id="resources-heading">Resources</h2>
@@ -28,13 +28,13 @@
 
   <nav class="pagination" aria-label="Resource pages">
     {% if pagination.has_prev %}
-    <a href="/ui?page={{ pagination.page - 1 }}">Previous</a>
+    <a href="/ui/dashboard?page={{ pagination.page - 1 }}&user_id={{ current_user.id }}">Previous</a>
     {% else %}
     <span class="nav-disabled" aria-disabled="true">Previous</span>
     {% endif %}
 
     {% if pagination.has_next %}
-    <a href="/ui?page={{ pagination.page + 1 }}">Next</a>
+    <a href="/ui/dashboard?page={{ pagination.page + 1 }}&user_id={{ current_user.id }}">Next</a>
     {% else %}
     <span class="nav-disabled" aria-disabled="true">Next</span>
     {% endif %}
@@ -42,12 +42,33 @@
     <span class="meta">Page {{ pagination.page }} of {{ pagination.total_pages }} ({{ pagination.total }} total)</span>
   </nav>
   {% else %}
-  <p class="empty">No resources yet. Add some on the <a href="/ui/resources">Resources</a> page.</p>
+  <p class="empty">No resources yet. Add some on the <a href="/ui/resources?user_id={{ current_user.id }}">Resources</a> page.</p>
   {% endif %}
 </section>
 
 <section aria-labelledby="calendar-heading">
   <h2 id="calendar-heading">Bookings calendar</h2>
+  <form method="get" action="/ui/dashboard" class="filters">
+    <input type="hidden" name="user_id" value="{{ current_user.id }}">
+    <label>Status
+      <select name="status_filter">
+        <option value="">All</option>
+        <option value="pending" {% if filters.status == "pending" %}selected{% endif %}>Pending</option>
+        <option value="approved" {% if filters.status == "approved" %}selected{% endif %}>Approved</option>
+        <option value="cancelled" {% if filters.status == "cancelled" %}selected{% endif %}>Cancelled</option>
+      </select>
+    </label>
+    <label>Resource type
+      <select name="resource_type">
+        <option value="">All</option>
+        {% for t in resource_types %}
+        <option value="{{ t }}" {% if filters.resource_type == t %}selected{% endif %}>{{ t }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Date <input type="date" name="date" value="{{ filters.date }}"></label>
+    <button class="btn btn-secondary" type="submit">Apply filters</button>
+  </form>
 
   {% if booking_days %}
     {% for day in booking_days %}
@@ -66,7 +87,7 @@
     </div>
     {% endfor %}
   {% else %}
-  <p class="empty">No bookings yet. Add some on the <a href="/ui/bookings">Bookings</a> page.</p>
+  <p class="empty">No bookings yet. Add some on the <a href="/ui/bookings?user_id={{ current_user.id }}">Bookings</a> page.</p>
   {% endif %}
 </section>
 {% endblock %}

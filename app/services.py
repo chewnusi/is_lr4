@@ -1,27 +1,14 @@
-"""
-Domain logic for resources and bookings.
-
-Used by JSON API routes and HTML UI routes so behavior stays in one place.
-"""
+"""Domain logic for resources, bookings, and users."""
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Literal
+from datetime import UTC, datetime
 
-from app import storage
+from sqlalchemy import text
+from sqlmodel import Session, col, select
 
-# Returned on PATCH approve when another approved booking overlaps this one (same resource).
-BOOKING_CONFLICT_MESSAGE = "Booking conflict detected"
-from app.models import (
-    BOOKING_STATUS_VALUES,
-    Booking,
-    BookingCreate,
-    BookingUpdate,
-    Resource,
-    ResourceCreate,
-    ResourceUpdate,
-)
+from app.models_db import Booking, BookingStatus, Resource, User, UserRole
+from app.schemas import BookingCreate, BookingUpdate, ResourceCreate, ResourceUpdate
 from app.utils import generate_id
 
 
@@ -41,207 +28,186 @@ class BadRequestError(Exception):
         super().__init__(message)
 
 
-def _find_index_by_id(items: list[dict], item_id: str) -> int | None:
-    for i, item in enumerate(items):
-        if item.get("id") == item_id:
-            return i
-    return None
-
-
-def resource_exists(resource_id: str) -> bool:
-    resources = storage.load_resources()
-    return any(r.get("id") == resource_id for r in resources)
-
-
-def _normalize_booking_dict(row: dict) -> dict:
-    """Ensure status is present and valid (legacy JSON may omit it)."""
-    d = dict(row)
-    s = d.get("status")
-    if not s or s not in BOOKING_STATUS_VALUES:
-        d["status"] = "pending"
-    return d
-
-
-def _booking_model(row: dict) -> Booking:
-    return Booking.model_validate(_normalize_booking_dict(row))
-
-
-def _parse_booking_datetime(value: str) -> datetime | None:
-    """Parse ISO-like start/end strings; None if unparseable."""
-    s = (value or "").strip()
-    if not s:
-        return None
-    for candidate in (s, s.replace(" ", "T", 1)):
-        try:
-            dt = datetime.fromisoformat(candidate.replace("Z", "+00:00"))
-            if dt.tzinfo is not None:
-                dt = dt.replace(tzinfo=None)
-            return dt
-        except ValueError:
-            continue
-    return None
-
-
 def _intervals_overlap(a_start: datetime, a_end: datetime, b_start: datetime, b_end: datetime) -> bool:
-    """True iff [a_start, a_end) overlaps [b_start, b_end) per strict inequality rule."""
     return a_start < b_end and a_end > b_start
 
 
-def _approved_booking_conflicts_with(
-    other: dict,
-    exclude_booking_id: str,
+def _ensure_resource_exists(session: Session, resource_id: str) -> Resource:
+    resource = session.get(Resource, resource_id)
+    if resource is None:
+        raise BadRequestError(f"Unknown resource_id: {resource_id}")
+    return resource
+
+
+def _ensure_booking_exists(session: Session, booking_id: str) -> Booking:
+    booking = session.get(Booking, booking_id)
+    if booking is None:
+        raise NotFoundError(f"Booking not found: {booking_id}")
+    return booking
+
+
+def _validate_booking_window(start_time: datetime, end_time: datetime) -> None:
+    now = datetime.now(UTC).replace(tzinfo=None)
+    if start_time >= end_time:
+        raise BadRequestError("start_time must be before end_time")
+    if start_time < now:
+        raise BadRequestError("Bookings in the past are not allowed")
+
+
+def _assert_no_approved_conflict(
+    session: Session,
     resource_id: str,
-    new_start: datetime,
-    new_end: datetime,
-) -> bool:
-    """other is a raw row; True if other is approved, same resource, not excluded, and overlaps new interval."""
-    if str(other.get("id", "")) == exclude_booking_id:
-        return False
-    norm = _normalize_booking_dict(other)
-    if norm.get("status") != "approved":
-        return False
-    if str(norm.get("resource_id", "")) != resource_id:
-        return False
-    o_start = _parse_booking_datetime(str(norm.get("start_time", "")))
-    o_end = _parse_booking_datetime(str(norm.get("end_time", "")))
-    if o_start is None or o_end is None:
-        return False
-    return _intervals_overlap(o_start, o_end, new_start, new_end)
+    start_time: datetime,
+    end_time: datetime,
+    exclude_booking_id: str | None = None,
+) -> None:
+    approved_bookings = session.exec(
+        select(Booking).where(
+            Booking.resource_id == resource_id,
+            Booking.status == BookingStatus.approved,
+        )
+    ).all()
+    for existing in approved_bookings:
+        if exclude_booking_id and existing.id == exclude_booking_id:
+            continue
+        if _intervals_overlap(existing.start_time, existing.end_time, start_time, end_time):
+            raise BadRequestError("Booking conflict detected")
+
+
+def _ensure_employee_owns_booking(actor: User, booking: Booking) -> None:
+    if actor.role == UserRole.admin:
+        return
+    if booking.user_id != actor.id:
+        raise BadRequestError("Employees can only act on their own bookings")
 
 
 # --- Resources ---
 
 
-def create_resource(payload: ResourceCreate) -> Resource:
-    resources = storage.load_resources()
-    new_id = generate_id()
-    record = {"id": new_id, **payload.model_dump()}
-    resources.append(record)
-    storage.save_resources(resources)
-    return Resource.model_validate(record)
+def create_resource(session: Session, payload: ResourceCreate) -> Resource:
+    resource = Resource(id=generate_id(), **payload.model_dump())
+    session.add(resource)
+    session.commit()
+    session.refresh(resource)
+    return resource
 
 
-def list_resources() -> list[Resource]:
-    resources = storage.load_resources()
-    return [Resource.model_validate(r) for r in resources]
+def list_resources(session: Session) -> list[Resource]:
+    return session.exec(select(Resource).order_by(Resource.name)).all()
 
 
-def get_resource(resource_id: str) -> Resource:
-    resources = storage.load_resources()
-    idx = _find_index_by_id(resources, resource_id)
-    if idx is None:
+def get_resource(session: Session, resource_id: str) -> Resource:
+    resource = session.get(Resource, resource_id)
+    if resource is None:
         raise NotFoundError(f"Resource not found: {resource_id}")
-    return Resource.model_validate(resources[idx])
+    return resource
 
 
-def update_resource(resource_id: str, payload: ResourceUpdate) -> Resource:
-    resources = storage.load_resources()
-    idx = _find_index_by_id(resources, resource_id)
-    if idx is None:
-        raise NotFoundError(f"Resource not found: {resource_id}")
+def update_resource(session: Session, resource_id: str, payload: ResourceUpdate) -> Resource:
+    resource = get_resource(session, resource_id)
     updates = payload.model_dump(exclude_unset=True)
     if not updates:
         raise BadRequestError("No fields to update.")
-    current = dict(resources[idx])
-    current.update(updates)
-    resources[idx] = current
-    storage.save_resources(resources)
-    return Resource.model_validate(current)
+    for key, value in updates.items():
+        setattr(resource, key, value)
+    session.add(resource)
+    session.commit()
+    session.refresh(resource)
+    return resource
 
 
-def delete_resource(resource_id: str) -> None:
-    resources = storage.load_resources()
-    idx = _find_index_by_id(resources, resource_id)
-    if idx is None:
-        raise NotFoundError(f"Resource not found: {resource_id}")
-    resources.pop(idx)
-    storage.save_resources(resources)
+def delete_resource(session: Session, resource_id: str) -> None:
+    resource = get_resource(session, resource_id)
+    session.delete(resource)
+    session.commit()
 
 
 # --- Bookings ---
 
 
-def create_booking(payload: BookingCreate) -> Booking:
-    if not resource_exists(payload.resource_id):
-        raise BadRequestError(f"Unknown resource_id: {payload.resource_id}")
-    bookings = storage.load_bookings()
-    new_id = generate_id()
-    record = {"id": new_id, **payload.model_dump(), "status": "pending"}
-    bookings.append(record)
-    storage.save_bookings(bookings)
-    return _booking_model(record)
+def create_booking(session: Session, payload: BookingCreate, actor: User) -> Booking:
+    if actor.role == UserRole.employee and payload.user_id != actor.id:
+        raise BadRequestError("Employees can only create bookings for themselves")
+    _ensure_resource_exists(session, payload.resource_id)
+    _validate_booking_window(payload.start_time, payload.end_time)
+    booking = Booking(id=generate_id(), status=BookingStatus.pending, **payload.model_dump())
+    session.add(booking)
+    session.commit()
+    session.refresh(booking)
+    return booking
 
 
-def list_bookings() -> list[Booking]:
-    bookings = storage.load_bookings()
-    return [_booking_model(b) for b in bookings]
+def list_bookings(session: Session, actor: User) -> list[Booking]:
+    query = select(Booking).order_by(Booking.start_time, Booking.id)
+    if actor.role == UserRole.employee:
+        query = query.where(Booking.user_id == actor.id)
+    return session.exec(query).all()
 
 
-def get_booking(booking_id: str) -> Booking:
-    bookings = storage.load_bookings()
-    idx = _find_index_by_id(bookings, booking_id)
-    if idx is None:
-        raise NotFoundError(f"Booking not found: {booking_id}")
-    return _booking_model(bookings[idx])
+def get_booking(session: Session, booking_id: str, actor: User) -> Booking:
+    booking = _ensure_booking_exists(session, booking_id)
+    _ensure_employee_owns_booking(actor, booking)
+    return booking
 
 
-def update_booking(booking_id: str, payload: BookingUpdate) -> Booking:
-    bookings = storage.load_bookings()
-    idx = _find_index_by_id(bookings, booking_id)
-    if idx is None:
-        raise NotFoundError(f"Booking not found: {booking_id}")
+def update_booking(session: Session, booking_id: str, payload: BookingUpdate, actor: User) -> Booking:
+    booking = _ensure_booking_exists(session, booking_id)
+    _ensure_employee_owns_booking(actor, booking)
     updates = payload.model_dump(exclude_unset=True)
     if not updates:
         raise BadRequestError("No fields to update.")
-    new_rid = updates.get("resource_id")
-    if new_rid is not None and not resource_exists(new_rid):
-        raise BadRequestError(f"Unknown resource_id: {new_rid}")
-    current = _normalize_booking_dict(dict(bookings[idx]))
-    current.update(updates)
-    bookings[idx] = current
-    storage.save_bookings(bookings)
-    return _booking_model(current)
+    if "resource_id" in updates:
+        _ensure_resource_exists(session, str(updates["resource_id"]))
+    new_start = updates.get("start_time", booking.start_time)
+    new_end = updates.get("end_time", booking.end_time)
+    _validate_booking_window(new_start, new_end)
+    if booking.status == BookingStatus.approved:
+        _assert_no_approved_conflict(
+            session,
+            updates.get("resource_id", booking.resource_id),
+            new_start,
+            new_end,
+            exclude_booking_id=booking.id,
+        )
+    for key, value in updates.items():
+        setattr(booking, key, value)
+    session.add(booking)
+    session.commit()
+    session.refresh(booking)
+    return booking
 
 
-def approve_booking(booking_id: str) -> Booking:
-    bookings = storage.load_bookings()
-    idx = _find_index_by_id(bookings, booking_id)
-    if idx is None:
-        raise NotFoundError(f"Booking not found: {booking_id}")
-    current = _normalize_booking_dict(dict(bookings[idx]))
-    rid = str(current.get("resource_id", ""))
-    ns = _parse_booking_datetime(str(current.get("start_time", "")))
-    ne = _parse_booking_datetime(str(current.get("end_time", "")))
-    if ns is not None and ne is not None:
-        for row in bookings:
-            if _approved_booking_conflicts_with(row, booking_id, rid, ns, ne):
-                raise BadRequestError(BOOKING_CONFLICT_MESSAGE)
-    current["status"] = "approved"
-    bookings[idx] = current
-    storage.save_bookings(bookings)
-    return _booking_model(current)
+def approve_booking(session: Session, booking_id: str, actor: User) -> Booking:
+    if actor.role != UserRole.admin:
+        raise BadRequestError("Only admins can approve bookings")
+    session.exec(text("BEGIN IMMEDIATE"))
+    booking = _ensure_booking_exists(session, booking_id)
+    if booking.status != BookingStatus.pending:
+        raise BadRequestError("Only pending bookings can be approved")
+    _assert_no_approved_conflict(session, booking.resource_id, booking.start_time, booking.end_time, booking.id)
+    booking.status = BookingStatus.approved
+    session.add(booking)
+    session.commit()
+    session.refresh(booking)
+    return booking
 
 
-def cancel_booking(booking_id: str) -> Booking:
-    return _set_booking_status(booking_id, "cancelled")
+def cancel_booking(session: Session, booking_id: str, actor: User) -> Booking:
+    booking = _ensure_booking_exists(session, booking_id)
+    _ensure_employee_owns_booking(actor, booking)
+    booking.status = BookingStatus.cancelled
+    session.add(booking)
+    session.commit()
+    session.refresh(booking)
+    return booking
 
 
-def _set_booking_status(booking_id: str, status: Literal["approved", "cancelled"]) -> Booking:
-    bookings = storage.load_bookings()
-    idx = _find_index_by_id(bookings, booking_id)
-    if idx is None:
-        raise NotFoundError(f"Booking not found: {booking_id}")
-    current = _normalize_booking_dict(dict(bookings[idx]))
-    current["status"] = status
-    bookings[idx] = current
-    storage.save_bookings(bookings)
-    return _booking_model(current)
+def delete_booking(session: Session, booking_id: str, actor: User) -> None:
+    booking = _ensure_booking_exists(session, booking_id)
+    _ensure_employee_owns_booking(actor, booking)
+    session.delete(booking)
+    session.commit()
 
 
-def delete_booking(booking_id: str) -> None:
-    bookings = storage.load_bookings()
-    idx = _find_index_by_id(bookings, booking_id)
-    if idx is None:
-        raise NotFoundError(f"Booking not found: {booking_id}")
-    bookings.pop(idx)
-    storage.save_bookings(bookings)
+def list_users(session: Session) -> list[User]:
+    return session.exec(select(User).order_by(col(User.role), User.name)).all()

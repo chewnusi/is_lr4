@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Calendar — RBMS{% endblock %}
+{% block tagline %}Calendar-style view of bookings.{% endblock %}
+{% block content %}
+<section>
+  <h2>Calendar filters</h2>
+  <form method="get" action="/ui/calendar" class="filters">
+    <input type="hidden" name="user_id" value="{{ current_user.id }}">
+    <label>Status
+      <select name="status_filter">
+        <option value="">All</option>
+        <option value="pending" {% if filters.status == "pending" %}selected{% endif %}>Pending</option>
+        <option value="approved" {% if filters.status == "approved" %}selected{% endif %}>Approved</option>
+        <option value="cancelled" {% if filters.status == "cancelled" %}selected{% endif %}>Cancelled</option>
+      </select>
+    </label>
+    <label>Resource type
+      <select name="resource_type">
+        <option value="">All</option>
+        {% for t in resource_types %}
+        <option value="{{ t }}" {% if filters.resource_type == t %}selected{% endif %}>{{ t }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Date <input type="date" name="date" value="{{ filters.date }}"></label>
+    <button class="btn btn-secondary" type="submit">Apply filters</button>
+  </form>
+</section>
+<section>
+  <h2>Bookings timeline</h2>
+  {% if booking_days %}
+  {% for day in booking_days %}
+  <div class="calendar-day">
+    <header>{{ day.date_label }}</header>
+    <ul class="booking-list">
+      {% for b in day.bookings %}
+      <li>
+        <div class="time">{{ b.start_time }} — {{ b.end_time }}</div>
+        <div class="resource">{{ b.resource_label }}</div>
+        <div class="user">{{ b.user_name }} · <span class="badge badge-status-{{ b.status }}">{{ b.status }}</span></div>
+        <div class="purpose">{{ b.purpose }}</div>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endfor %}
+  {% else %}
+  <p class="empty">No bookings found for selected filters.</p>
+  {% endif %}
+</section>
+{% endblock %}

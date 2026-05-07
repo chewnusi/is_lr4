@@ -10,10 +10,13 @@
   <header class="site-header">
     <h1>Resource Booking Management System</h1>
     <p class="tagline">{% block tagline %}Manage resources and bookings from the browser or the REST API.{% endblock %}</p>
+    <div class="user-pill">Current user: <strong>{{ current_user.name }}</strong> ({{ current_user.role.value }}) · switch with `?user_id=demo-admin` or `?user_id=demo-employee`</div>
     <nav class="main-nav" aria-label="Main">
-      <a href="/ui">Overview</a>
-      <a href="/ui/resources">Resources</a>
-      <a href="/ui/bookings">Bookings</a>
+      <a href="/ui/dashboard?user_id={{ current_user.id }}">Dashboard</a>
+      <a href="/ui/resources?user_id={{ current_user.id }}">Resources</a>
+      <a href="/ui/bookings?user_id={{ current_user.id }}">Bookings</a>
+      <a href="/ui/calendar?user_id={{ current_user.id }}">Calendar</a>
+      <a href="/ui/admin?user_id={{ current_user.id }}">Admin</a>
       <a href="/docs" class="nav-secondary">API docs</a>
     </nav>
   </header>

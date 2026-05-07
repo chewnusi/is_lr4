@@ -3,13 +3,13 @@
 {% block tagline %}Update booking details.{% endblock %}
 {% block content %}
 
-<p class="back-link"><a href="/ui/bookings">← Back to bookings</a></p>
+<p class="back-link"><a href="/ui/bookings?user_id={{ current_user.id }}">← Back to bookings</a></p>
 
 <section class="form-section" aria-labelledby="edit-heading">
   <h2 id="edit-heading">Edit booking</h2>
-  <p class="status-line">Status: <span class="badge badge-status-{{ booking.status }}">{{ booking.status }}</span> (use Approve / Cancel on the <a href="/ui/bookings">bookings list</a>.)</p>
+  <p class="status-line">Status: <span class="badge badge-status-{{ booking.status }}">{{ booking.status }}</span> (use Approve / Cancel on the <a href="/ui/bookings?user_id={{ current_user.id }}">bookings list</a>.)</p>
   {% if resource_options %}
-  <form method="post" action="/ui/bookings/{{ booking.id }}/edit" class="stacked-form">
+  <form method="post" action="/ui/bookings/{{ booking.id }}/edit?user_id={{ current_user.id }}" class="stacked-form">
     <label>Resource
       <select name="resource_id" required>
         {% for r in resource_options %}
@@ -17,13 +17,12 @@
         {% endfor %}
       </select>
     </label>
-    <label>User name <input type="text" name="user_name" value="{{ booking.user_name }}" required></label>
-    <label>Start time <input type="text" name="start_time" value="{{ booking.start_time }}" required></label>
-    <label>End time <input type="text" name="end_time" value="{{ booking.end_time }}" required></label>
+    <label>Start time <input type="datetime-local" name="start_time" value="{{ booking.start_time.strftime('%Y-%m-%dT%H:%M') }}" required></label>
+    <label>End time <input type="datetime-local" name="end_time" value="{{ booking.end_time.strftime('%Y-%m-%dT%H:%M') }}" required></label>
     <label>Purpose <input type="text" name="purpose" value="{{ booking.purpose }}" required></label>
     <div class="form-actions">
       <button type="submit" class="btn btn-primary">Save changes</button>
-      <a class="btn btn-secondary" href="/ui/bookings">Cancel</a>
+      <a class="btn btn-secondary" href="/ui/bookings?user_id={{ current_user.id }}">Cancel</a>
     </div>
   </form>
   {% else %}

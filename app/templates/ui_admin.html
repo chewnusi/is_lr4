@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Admin — RBMS{% endblock %}
+{% block tagline %}System-level overview and role visibility.{% endblock %}
+{% block content %}
+<section>
+  <h2>Admin settings</h2>
+  {% if forbidden %}
+  <p class="empty">Admin role required to view this page.</p>
+  {% else %}
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr><th>User ID</th><th>Name</th><th>Role</th></tr>
+      </thead>
+      <tbody>
+        {% for u in users %}
+        <tr>
+          <td><code>{{ u.id }}</code></td>
+          <td>{{ u.name }}</td>
+          <td><span class="badge">{{ u.role.value }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

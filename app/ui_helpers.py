@@ -1,8 +1,4 @@
-"""
-Server-side helpers for the /ui dashboard (pagination, booking calendar grouping).
-
-Uses the same storage layer as the JSON API; does not alter API behavior.
-"""
+"""Server-side helpers for dashboard/calendar pages."""
 
 from __future__ import annotations
 
@@ -10,8 +6,10 @@ import math
 from datetime import datetime
 from typing import Any
 
-from app import storage
-from app.models import BOOKING_STATUS_VALUES
+from sqlmodel import Session
+
+from app import services
+from app.models_db import BookingStatus, User
 
 RESOURCES_PER_PAGE = 5
 
@@ -44,20 +42,15 @@ def _parse_booking_date(start_time: str) -> tuple[str, str]:
     return "9999-12-31", "Unknown date"
 
 
-def _resource_id_to_name() -> dict[str, str]:
+def _resource_id_to_name(session: Session) -> dict[str, str]:
     out: dict[str, str] = {}
-    for r in storage.load_resources():
-        rid = r.get("id")
-        if not rid:
-            continue
-        name = r.get("name")
-        out[str(rid)] = name if name else str(rid)
+    for r in services.list_resources(session):
+        out[r.id] = r.name
     return out
 
 
-def paginate_resources(page: int, per_page: int = RESOURCES_PER_PAGE) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    """Return a page of raw resource dicts plus pagination metadata."""
-    resources = list(storage.load_resources())
+def paginate_resources(session: Session, page: int, per_page: int = RESOURCES_PER_PAGE) -> tuple[list[Any], dict[str, Any]]:
+    resources = list(services.list_resources(session))
     total = len(resources)
     total_pages = max(1, math.ceil(total / per_page)) if total else 1
     safe_page = max(1, min(int(page), total_pages))
@@ -74,33 +67,41 @@ def paginate_resources(page: int, per_page: int = RESOURCES_PER_PAGE) -> tuple[l
     return slice_, meta
 
 
-def build_booking_calendar_rows() -> list[dict[str, Any]]:
-    """
-    Group bookings by calendar date (from start_time), sorted by date then start time.
-
-    Each row: { "date_label", "bookings": [ { resource_label, start_time, end_time, user_name, purpose } ] }
-    """
-    id_to_name = _resource_id_to_name()
+def build_booking_calendar_rows(
+    session: Session,
+    actor: User,
+    status_filter: str | None = None,
+    type_filter: str | None = None,
+    date_filter: str | None = None,
+) -> list[dict[str, Any]]:
+    id_to_name = _resource_id_to_name(session)
+    resources = {r.id: r for r in services.list_resources(session)}
     by_key: dict[str, tuple[str, list[dict[str, Any]]]] = {}
 
-    for b in storage.load_bookings():
-        start_time = str(b.get("start_time", ""))
+    for b in services.list_bookings(session, actor):
+        start_time = b.start_time.isoformat(timespec="minutes")
         sort_key, date_label = _parse_booking_date(start_time)
-        rid = str(b.get("resource_id", ""))
+        if date_filter and sort_key != date_filter:
+            continue
+        rid = b.resource_id
         resource_label = id_to_name.get(rid, rid or "—")
+        resource = resources.get(rid)
+        if type_filter and resource and resource.type != type_filter:
+            continue
 
         if sort_key not in by_key:
             by_key[sort_key] = (date_label, [])
-        raw_status = b.get("status")
-        status = raw_status if raw_status in BOOKING_STATUS_VALUES else "pending"
+        status = b.status.value
+        if status_filter and status_filter != status:
+            continue
         by_key[sort_key][1].append(
             {
                 "resource_label": resource_label,
                 "resource_id": rid,
                 "start_time": start_time,
-                "end_time": str(b.get("end_time", "")),
-                "user_name": str(b.get("user_name", "")),
-                "purpose": str(b.get("purpose", "")),
+                "end_time": b.end_time.isoformat(timespec="minutes"),
+                "user_name": b.user_id,
+                "purpose": b.purpose,
                 "status": status,
             }
         )
@@ -115,8 +116,7 @@ def build_booking_calendar_rows() -> list[dict[str, Any]]:
 
 
 def build_ui_context(page: int) -> dict[str, Any]:
-    """Context dict for the dashboard template."""
-    resources, pagination = paginate_resources(page)
+    raise NotImplementedError("Use explicit helpers in routes.")
     return {
         "resources": resources,
         "pagination": pagination,

@@ -1,0 +1,14 @@
+version: "3.9"
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=sqlite:////app/app/data/app.db
+      - SEED_ON_START=true
+    volumes:
+      - sqlite_data:/app/app/data
+
+volumes:
+  sqlite_data:

@@ -1,47 +1,65 @@
 # Resource Booking Management System
 
-**FastAPI** REST API for managing organizational **resources** (rooms, equipment, etc.) and **bookings** against those resources. Data is persisted as **JSON files** under `app/data/`.
+FastAPI + SQLModel booking system with SQLite, role-based authorization, and server-rendered UI.
 
-## Features
+## Highlights
 
-- **Resources**: create, list, get by id, update (partial), delete.
-- **Bookings**: create, list, get by id, update (partial), delete.
-- **Validation**: `capacity` must be at least **1**; a booking can only reference an existing **`resource_id`** (on create and when changing `resource_id` on update).
-- **IDs**: server-generated UUID strings for new resources and bookings.
-- **HTTP semantics**: `201` for successful creates, `204` for successful deletes, `404` for missing entities, `400` for business-rule violations (e.g. unknown resource on booking).
+- SQLite persistence with SQLModel entities (`resources`, `bookings`, `users`)
+- Alembic migration support (`alembic upgrade head`)
+- Booking validation:
+  - strict datetime parsing
+  - rejects past bookings
+  - enforces `start_time < end_time`
+  - resource existence checks
+  - approved-booking conflict detection
+- Status lifecycle: `pending`, `approved`, `cancelled`
+  - only `pending` can be approved
+- Roles:
+  - `employee`: own bookings only
+  - `admin`: manage resources and approve bookings
+- Multi-page UI:
+  - Dashboard
+  - Resources
+  - Bookings
+  - Calendar
+  - Admin
+- Pytest API coverage for CRUD/validation/conflicts/authorization regressions
 
-
-## How to run
-
-1. Create and activate a virtual environment (recommended):
-
-   ```bash
-   python3 -m venv .venv
-   source .venv/bin/activate   # Windows: .venv\Scripts\activate
-   ```
-
-2. Install dependencies:
-
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. Start the API from the **project root** (the directory that contains `app/`):
-
-   ```bash
-   uvicorn app.main:app --reload
-   ```
-
-4. Open the interactive docs at [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs), or call `GET http://127.0.0.1:8000/` for a short JSON overview.
-
-Initial data files `app/data/resources.json` and `app/data/bookings.json` are empty arrays `[]` and are filled as you use the API.
-
-## Demo data (optional, manual)
-
-To load **10 sample resources** and **5 sample bookings**, run from the **project root** with your virtual environment activated:
+## Run locally
 
 ```bash
-python -m app.seed
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+alembic upgrade head
+uvicorn app.main:app --reload
 ```
 
-The script **does not** run on server startup. It removes any existing rows whose ids start with `demo-seed-` (and bookings pointing at those resources), then inserts fresh demo records. Your own data (e.g. UUID ids from the API) is left unchanged.
+Open:
+- UI: [http://127.0.0.1:8000/ui/dashboard](http://127.0.0.1:8000/ui/dashboard)
+- Docs: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+
+## Demo users
+
+- `demo-employee` (employee)
+- `demo-admin` (admin)
+
+Switch user quickly via query param, for example:
+- `/ui/dashboard?user_id=demo-admin`
+
+For API calls, also pass `?user_id=demo-admin` (or `demo-employee`).
+
+## Docker
+
+```bash
+docker compose up --build
+```
+
+The container runs migrations at startup and stores SQLite data in a named volume.
+On first start with an empty DB, demo records are auto-seeded so the system is not blank.
+
+## Tests
+
+```bash
+pytest -q
+```

@@ -29,3 +29,7 @@ htmlcov/
 # Environment secrets (if added later)
 .env
 .env.local
+
+# Local SQLite databases
+*.db
+app/data/*.db
