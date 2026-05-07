@@ -13,7 +13,7 @@ from app.models_db import User, UserRole
 
 
 @pytest.fixture()
-def client():
+def db_engine():
     engine = create_engine(
         "sqlite://",
         connect_args={"check_same_thread": False},
@@ -24,9 +24,13 @@ def client():
         session.add(User(id="demo-employee", name="Demo Employee", role=UserRole.employee))
         session.add(User(id="demo-admin", name="Demo Admin", role=UserRole.admin))
         session.commit()
+    return engine
 
+
+@pytest.fixture()
+def client(db_engine):
     def _override_session():
-        with Session(engine) as session:
+        with Session(db_engine) as session:
             yield session
 
     app.dependency_overrides[get_session] = _override_session

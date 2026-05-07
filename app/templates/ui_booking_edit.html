@@ -9,6 +9,12 @@
   <h2 id="edit-heading">Edit booking</h2>
   <p class="status-line">Status: <span class="badge badge-status-{{ booking.status }}">{{ booking.status }}</span> (use Approve / Cancel on the <a href="/ui/bookings?user_id={{ current_user.id }}">bookings list</a>.)</p>
   {% if resource_options %}
+  <div class="card" id="edit-reco-panel">
+    <h3>Get ML recommendations</h3>
+    <button type="button" class="btn btn-secondary" id="edit-load-recommendations-btn">Get ML recommendations</button>
+    <div id="edit-recommendations-output" class="status-line" style="margin-top: 0.75rem;"></div>
+    <div id="edit-recommendations-list"></div>
+  </div>
   <form method="post" action="/ui/bookings/{{ booking.id }}/edit?user_id={{ current_user.id }}" class="stacked-form">
     <label>Resource
       <select name="resource_id" required>
@@ -19,12 +25,93 @@
     </label>
     <label>Start time <input type="datetime-local" name="start_time" value="{{ booking.start_time.strftime('%Y-%m-%dT%H:%M') }}" required></label>
     <label>End time <input type="datetime-local" name="end_time" value="{{ booking.end_time.strftime('%Y-%m-%dT%H:%M') }}" required></label>
+    <label>Attendees count <input type="number" name="attendees_count" min="1" value="{{ booking.attendees_count or '' }}" placeholder="Optional"></label>
+    <label>Purpose category
+      <select name="purpose_category">
+        <option value="">Select category (optional)</option>
+        {% for category in purpose_categories %}
+        <option value="{{ category }}" {% if booking.purpose_category and booking.purpose_category.value == category %}selected{% endif %}>
+          {{ category.replace("_", " ").title() }}
+        </option>
+        {% endfor %}
+      </select>
+    </label>
     <label>Purpose <input type="text" name="purpose" value="{{ booking.purpose }}" required></label>
     <div class="form-actions">
       <button type="submit" class="btn btn-primary">Save changes</button>
       <a class="btn btn-secondary" href="/ui/bookings?user_id={{ current_user.id }}">Cancel</a>
     </div>
   </form>
+  <script>
+    (function () {
+      const btn = document.getElementById("edit-load-recommendations-btn");
+      const output = document.getElementById("edit-recommendations-output");
+      const list = document.getElementById("edit-recommendations-list");
+      const form = document.querySelector('form[action*="/edit?user_id="]');
+      if (!btn || !output || !list || !form) return;
+
+      function getVal(name) {
+        const el = form.querySelector(`[name="${name}"]`);
+        return el ? el.value : "";
+      }
+
+      function setVal(name, value) {
+        const el = form.querySelector(`[name="${name}"]`);
+        if (el) el.value = value;
+      }
+
+      btn.addEventListener("click", async function () {
+        const resourceSelect = form.querySelector('[name="resource_id"]');
+        const selectedOption = resourceSelect ? resourceSelect.options[resourceSelect.selectedIndex] : null;
+        const resourceType = selectedOption && selectedOption.textContent ? selectedOption.textContent.split(" — ")[1]?.split(" ")[0] || "meeting_room" : "meeting_room";
+        const payload = {
+          resource_type: resourceType,
+          preferred_start_time: getVal("start_time") ? getVal("start_time") + ":00" : "",
+          duration_minutes: 60,
+          attendees_count: parseInt(getVal("attendees_count") || "1", 10),
+          purpose_category: getVal("purpose_category") || "other",
+          building: null,
+          top_n: 3
+        };
+        if (!payload.preferred_start_time) {
+          output.textContent = "Pick a start time first.";
+          return;
+        }
+        output.textContent = "Loading recommendations...";
+        list.innerHTML = "";
+        const response = await fetch(`/recommendations/booking-options?user_id={{ current_user.id }}`, {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(payload)
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          output.textContent = data.detail || "Recommendation request failed.";
+          return;
+        }
+        output.textContent = `Received ${data.recommendations.length} recommendations.`;
+        data.recommendations.forEach((item) => {
+          const card = document.createElement("div");
+          card.className = "card";
+          card.style.marginTop = "0.5rem";
+          card.innerHTML = `<strong>${item.resource_name}</strong> (${item.resource_type})<br>${item.start_time} - ${item.end_time}<br>Score: ${item.score}`;
+          const useBtn = document.createElement("button");
+          useBtn.type = "button";
+          useBtn.className = "btn btn-sm btn-primary";
+          useBtn.textContent = "Use this option";
+          useBtn.style.marginTop = "0.5rem";
+          useBtn.onclick = function () {
+            setVal("resource_id", item.resource_id);
+            setVal("start_time", item.start_time.slice(0, 16));
+            setVal("end_time", item.end_time.slice(0, 16));
+          };
+          card.appendChild(document.createElement("br"));
+          card.appendChild(useBtn);
+          list.appendChild(card);
+        });
+      });
+    })();
+  </script>
   {% else %}
   <p class="empty">No resources available. <a href="/ui/resources">Create a resource</a> first.</p>
   {% endif %}

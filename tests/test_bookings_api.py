@@ -16,7 +16,11 @@ def test_booking_crud_and_transitions(client, booking_payload):
     booking_payload["resource_id"] = rid
     created = client.post("/bookings?user_id=demo-employee", json=booking_payload)
     assert created.status_code == 201
-    bid = created.json()["id"]
+    created_data = created.json()
+    bid = created_data["id"]
+    assert created_data["created_at"] is not None
+    assert created_data["updated_at"] is None
+    assert created_data["cancelled_at"] is None
 
     bad_approve = client.patch(f"/bookings/{bid}/approve?user_id=demo-employee")
     assert bad_approve.status_code == 403
@@ -24,6 +28,7 @@ def test_booking_crud_and_transitions(client, booking_payload):
     approved = client.patch(f"/bookings/{bid}/approve?user_id=demo-admin")
     assert approved.status_code == 200
     assert approved.json()["status"] == "approved"
+    assert approved.json()["updated_at"] is not None
 
     second_approve = client.patch(f"/bookings/{bid}/approve?user_id=demo-admin")
     assert second_approve.status_code == 400
@@ -31,6 +36,7 @@ def test_booking_crud_and_transitions(client, booking_payload):
     cancelled = client.patch(f"/bookings/{bid}/cancel?user_id=demo-employee")
     assert cancelled.status_code == 200
     assert cancelled.json()["status"] == "cancelled"
+    assert cancelled.json()["cancelled_at"] is not None
 
     deleted = client.delete(f"/bookings/{bid}?user_id=demo-employee")
     assert deleted.status_code == 204

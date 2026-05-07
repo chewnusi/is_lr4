@@ -22,6 +22,7 @@ FastAPI + SQLModel booking system with SQLite, role-based authorization, and ser
   - Resources
   - Bookings
   - Calendar
+  - Analytics
   - Admin
 - Pytest API coverage for CRUD/validation/conflicts/authorization regressions
 
@@ -63,3 +64,57 @@ On first start with an empty DB, demo records are auto-seeded so the system is n
 ```bash
 pytest -q
 ```
+
+## Demand Forecasting (Analytics)
+
+Generate patterned synthetic history (500-1000+ recommended):
+
+```bash
+python -m app.ml.demand.synthetic_history --count 800 --months-back 3 --reset
+```
+
+Train the demand model manually:
+
+```bash
+python -m app.ml.demand.train_model
+```
+
+Model artifacts are saved to:
+
+- `app/ml/demand/model_store/demand_model.joblib`
+- `app/ml/demand/model_store/demand_model.meta.json`
+
+Forecast API (admin only):
+
+```bash
+GET /analytics/demand-forecast?resource_type=meeting_room&date=2026-04-10&building=Building%20A&user_id=demo-admin
+```
+
+UI Analytics page:
+
+- `/ui/analytics?user_id=demo-admin`
+
+## Booking Recommendations (ML)
+
+Generate recommendation training dataset:
+
+```bash
+python -m app.ml.recommendation.synthetic_dataset --samples 1200
+```
+
+Train recommendation model:
+
+```bash
+python -m app.ml.recommendation.train_model
+```
+
+Recommendation endpoint:
+
+```bash
+POST /recommendations/booking-options
+```
+
+Recommendation model artifacts:
+
+- `app/ml/recommendation/model_store/reco_model.joblib`
+- `app/ml/recommendation/model_store/reco_model.meta.json`

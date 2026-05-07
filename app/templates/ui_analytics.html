@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Analytics — RBMS{% endblock %}
+{% block tagline %}Demand forecast by resource type and date.{% endblock %}
+{% block content %}
+<section>
+  <h2>Demand Forecast</h2>
+  {% if forbidden %}
+  <p class="empty">Admin role required to access analytics.</p>
+  {% else %}
+  <form method="get" action="/ui/analytics" class="filters">
+    <input type="hidden" name="user_id" value="{{ current_user.id }}">
+    <label>Resource type
+      <select name="resource_type" required>
+        <option value="">Select type</option>
+        {% for t in resource_types %}
+        <option value="{{ t }}" {% if filters.resource_type == t %}selected{% endif %}>{{ t }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Date <input type="date" name="date" value="{{ filters.date }}" required></label>
+    <label>Building
+      <select name="building">
+        <option value="">All buildings</option>
+        {% for b in buildings %}
+        <option value="{{ b }}" {% if filters.building == b %}selected{% endif %}>{{ b }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <button type="submit" class="btn btn-primary">Show forecast</button>
+  </form>
+  {% if forecast_result %}
+  <p class="status-line">
+    Forecast for <strong>{{ forecast_result.resource_type }}</strong> on <strong>{{ forecast_result.date }}</strong>
+    {% if forecast_result.building %}in <strong>{{ forecast_result.building }}</strong>{% endif %}.
+    Peak hours: <strong>{{ forecast_result.peak_hours | join(", ") }}</strong>
+  </p>
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr><th>Hour</th><th>Predicted demand</th><th>Peak</th></tr>
+      </thead>
+      <tbody>
+        {% for row in forecast_result.forecast %}
+        <tr>
+          <td>{{ "%02d:00" | format(row.hour) }}</td>
+          <td>{{ row.predicted_demand }}</td>
+          <td>{% if row.hour in forecast_result.peak_hours %}<span class="badge badge-active">Peak</span>{% else %}—{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+  {% endif %}
+</section>
+{% endblock %}

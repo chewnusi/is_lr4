@@ -11,10 +11,11 @@ from pydantic import ValidationError
 from sqlmodel import Session
 
 from app.db import get_session
-from app.models_db import User
+from app.models_db import BookingPurposeCategory, User
 from app.schemas import BookingCreate, BookingUpdate, ResourceCreate, ResourceUpdate
 from app.auth import get_current_user, require_admin
 from app import services
+from app.demand_forecast_service import get_demand_forecast
 from app.template_env import templates
 from app.ui_helpers import build_booking_calendar_rows, paginate_resources
 
@@ -45,6 +46,10 @@ def _parse_dt_local(value: str) -> datetime:
     if len(normalized) == 16:
         normalized += ":00"
     return datetime.fromisoformat(normalized)
+
+
+def _purpose_categories() -> list[str]:
+    return [category.value for category in BookingPurposeCategory]
 
 
 @router.get("/ui", response_class=Response)
@@ -241,6 +246,7 @@ def ui_bookings_list(
         "bookings": bookings_sorted,
         "resource_options": resource_options,
         "resource_name_by_id": resource_name_by_id,
+        "purpose_categories": _purpose_categories(),
         "resource_types": sorted({r.type for r in resource_options}),
         "filters": {"status": status_filter or "", "resource_type": resource_type or "", "date": date or ""},
         **_base_context(request, actor),
@@ -259,6 +265,8 @@ def ui_bookings_create(
     start_time: str = Form(...),
     end_time: str = Form(...),
     purpose: str = Form(),
+    purpose_category: str = Form(default=""),
+    attendees_count: int | None = Form(default=None),
     user_id: str = Form(...),
     session: Session = Depends(get_session),
     actor: User = Depends(get_current_user),
@@ -270,6 +278,8 @@ def ui_bookings_create(
             start_time=_parse_dt_local(start_time),
             end_time=_parse_dt_local(end_time),
             purpose=purpose.strip(),
+            purpose_category=purpose_category.strip() or None,
+            attendees_count=attendees_count,
         )
     except ValidationError:
         return _redirect_path("/ui/bookings", FLASH_ERR, "Could not create booking: fill all fields correctly.", user_id=actor.id)
@@ -299,6 +309,7 @@ def ui_booking_edit_form(
     ctx = {
         "booking": booking.model_dump(),
         "resource_options": resource_options,
+        "purpose_categories": _purpose_categories(),
         **_base_context(request, actor),
     }
     return templates.TemplateResponse(
@@ -316,6 +327,8 @@ def ui_booking_edit_submit(
     start_time: str = Form(),
     end_time: str = Form(),
     purpose: str = Form(),
+    purpose_category: str = Form(default=""),
+    attendees_count: int | None = Form(default=None),
     session: Session = Depends(get_session),
     actor: User = Depends(get_current_user),
 ) -> RedirectResponse:
@@ -325,6 +338,8 @@ def ui_booking_edit_submit(
             start_time=_parse_dt_local(start_time),
             end_time=_parse_dt_local(end_time),
             purpose=purpose.strip(),
+            purpose_category=purpose_category.strip() or None,
+            attendees_count=attendees_count,
         )
     except ValidationError:
         return _redirect_path(
@@ -442,4 +457,56 @@ def ui_admin(
         request=request,
         name="ui_admin.html",
         context={"users": services.list_users(session), "forbidden": False, **_base_context(request, actor)},
+    )
+
+
+@router.get("/ui/analytics", response_class=Response)
+def ui_analytics(
+    request: Request,
+    resource_type: str | None = Query(default=None),
+    date: str | None = Query(default=None),
+    building: str | None = Query(default=None),
+    session: Session = Depends(get_session),
+    actor: User = Depends(get_current_user),
+) -> Response:
+    if actor.role.value != "admin":
+        return templates.TemplateResponse(
+            request=request,
+            name="ui_analytics.html",
+            context={"forbidden": True, "forecast_result": None, "resource_types": [], "buildings": [], "filters": {}, **_base_context(request, actor)},
+            status_code=403,
+        )
+
+    resources = services.list_resources(session)
+    resource_types = sorted({resource.type for resource in resources})
+    buildings = sorted({resource.building for resource in resources if resource.building})
+    filters = {"resource_type": resource_type or "", "date": date or "", "building": building or ""}
+    forecast_result = None
+
+    if resource_type and date:
+        try:
+            parsed_date = datetime.strptime(date, "%Y-%m-%d").date()
+            building_value = building.strip() if building and building.strip() else None
+            forecast_result = get_demand_forecast(
+                session,
+                resource_type=resource_type,
+                target_date=parsed_date,
+                building=building_value,
+            )
+        except ValueError:
+            return _redirect_path("/ui/analytics", FLASH_ERR, "Invalid date format. Use YYYY-MM-DD.", user_id=actor.id)
+        except FileNotFoundError as exc:
+            return _redirect_path("/ui/analytics", FLASH_ERR, str(exc), user_id=actor.id)
+
+    return templates.TemplateResponse(
+        request=request,
+        name="ui_analytics.html",
+        context={
+            "forbidden": False,
+            "forecast_result": forecast_result,
+            "resource_types": resource_types,
+            "buildings": buildings,
+            "filters": filters,
+            **_base_context(request, actor),
+        },
     )

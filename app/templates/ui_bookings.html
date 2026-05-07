@@ -7,6 +7,13 @@
   <h2 id="new-booking-heading">New booking</h2>
   {% if resource_options %}
   <p class="status-line">Employees can create only their own bookings. Admin can approve/cancel any booking.</p>
+  <div class="card" id="ml-reco-panel">
+    <h3>Get ML recommendations</h3>
+    <p class="status-line">Generate top booking options from your requested parameters.</p>
+    <button type="button" class="btn btn-secondary" id="load-recommendations-btn">Get ML recommendations</button>
+    <div id="recommendations-output" class="status-line" style="margin-top: 0.75rem;"></div>
+    <div id="recommendations-list"></div>
+  </div>
   <form method="post" action="/ui/bookings?user_id={{ current_user.id }}" class="stacked-form">
     <label>Resource
       <select name="resource_id" required>
@@ -24,9 +31,92 @@
     </label>
     <label>Start time <input type="datetime-local" name="start_time" required></label>
     <label>End time <input type="datetime-local" name="end_time" required></label>
+    <label>Attendees count <input type="number" name="attendees_count" min="1" placeholder="Optional"></label>
+    <label>Purpose category
+      <select name="purpose_category">
+        <option value="">Select category (optional)</option>
+        {% for category in purpose_categories %}
+        <option value="{{ category }}">{{ category.replace("_", " ").title() }}</option>
+        {% endfor %}
+      </select>
+    </label>
     <label>Purpose <input type="text" name="purpose" required placeholder="Team meeting"></label>
     <button type="submit" class="btn btn-primary">Create booking</button>
   </form>
+  <script>
+    (function () {
+      const btn = document.getElementById("load-recommendations-btn");
+      const output = document.getElementById("recommendations-output");
+      const list = document.getElementById("recommendations-list");
+      const form = document.querySelector('form[action^="/ui/bookings"]');
+      if (!btn || !output || !list || !form) return;
+
+      function value(name) {
+        const el = form.querySelector(`[name="${name}"]`);
+        return el ? el.value : "";
+      }
+
+      function setValue(name, val) {
+        const el = form.querySelector(`[name="${name}"]`);
+        if (el) el.value = val;
+      }
+
+      btn.addEventListener("click", async function () {
+        const resourceSelect = form.querySelector('[name="resource_id"]');
+        const selectedOption = resourceSelect ? resourceSelect.options[resourceSelect.selectedIndex] : null;
+        const resourceType = selectedOption && selectedOption.textContent ? selectedOption.textContent.split(" — ")[1]?.split(" ")[0] || "meeting_room" : "meeting_room";
+        const payload = {
+          resource_type: resourceType,
+          preferred_start_time: value("start_time") ? value("start_time") + ":00" : "",
+          duration_minutes: 60,
+          attendees_count: parseInt(value("attendees_count") || "1", 10),
+          purpose_category: value("purpose_category") || "other",
+          building: null,
+          top_n: 3
+        };
+        if (!payload.preferred_start_time) {
+          output.textContent = "Pick a start time first.";
+          return;
+        }
+        output.textContent = "Loading recommendations...";
+        list.innerHTML = "";
+        try {
+          const res = await fetch(`/recommendations/booking-options?user_id={{ current_user.id }}`, {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify(payload)
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            output.textContent = data.detail || "Recommendation request failed.";
+            return;
+          }
+          output.textContent = `Received ${data.recommendations.length} recommendations.`;
+          data.recommendations.forEach((item) => {
+            const card = document.createElement("div");
+            card.className = "card";
+            card.style.marginTop = "0.5rem";
+            card.innerHTML = `<strong>${item.resource_name}</strong> (${item.resource_type})<br>${item.start_time} - ${item.end_time}<br>Score: ${item.score}`;
+            const useBtn = document.createElement("button");
+            useBtn.type = "button";
+            useBtn.className = "btn btn-sm btn-primary";
+            useBtn.textContent = "Use this option";
+            useBtn.style.marginTop = "0.5rem";
+            useBtn.onclick = function () {
+              setValue("resource_id", item.resource_id);
+              setValue("start_time", item.start_time.slice(0, 16));
+              setValue("end_time", item.end_time.slice(0, 16));
+            };
+            card.appendChild(document.createElement("br"));
+            card.appendChild(useBtn);
+            list.appendChild(card);
+          });
+        } catch (err) {
+          output.textContent = "Could not fetch recommendations.";
+        }
+      });
+    })();
+  </script>
   {% else %}
   <p class="empty">Create at least one <a href="/ui/resources">resource</a> before adding bookings.</p>
   {% endif %}

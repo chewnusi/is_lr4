@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from sqlalchemy import text
 from sqlmodel import Session, col, select
 
-from app.models_db import Booking, BookingStatus, Resource, User, UserRole
+from app.models_db import Booking, BookingStatus, BookingStatusHistory, Resource, User, UserRole
 from app.schemas import BookingCreate, BookingUpdate, ResourceCreate, ResourceUpdate
 from app.utils import generate_id
 
@@ -81,6 +81,32 @@ def _ensure_employee_owns_booking(actor: User, booking: Booking) -> None:
         raise BadRequestError("Employees can only act on their own bookings")
 
 
+def _validate_attendees_capacity(resource: Resource, attendees_count: int | None) -> None:
+    if attendees_count is None:
+        return
+    if attendees_count > resource.capacity:
+        raise BadRequestError(
+            f"attendees_count ({attendees_count}) exceeds resource capacity ({resource.capacity})"
+        )
+
+
+def _record_status_history(
+    session: Session,
+    booking: Booking,
+    new_status: BookingStatus,
+    changed_by_user_id: str | None,
+) -> None:
+    history = BookingStatusHistory(
+        id=generate_id(),
+        booking_id=booking.id,
+        old_status=booking.status,
+        new_status=new_status,
+        changed_at=datetime.now(UTC).replace(tzinfo=None),
+        changed_by_user_id=changed_by_user_id,
+    )
+    session.add(history)
+
+
 # --- Resources ---
 
 
@@ -128,9 +154,15 @@ def delete_resource(session: Session, resource_id: str) -> None:
 def create_booking(session: Session, payload: BookingCreate, actor: User) -> Booking:
     if actor.role == UserRole.employee and payload.user_id != actor.id:
         raise BadRequestError("Employees can only create bookings for themselves")
-    _ensure_resource_exists(session, payload.resource_id)
+    resource = _ensure_resource_exists(session, payload.resource_id)
     _validate_booking_window(payload.start_time, payload.end_time)
-    booking = Booking(id=generate_id(), status=BookingStatus.pending, **payload.model_dump())
+    _validate_attendees_capacity(resource, payload.attendees_count)
+    booking = Booking(
+        id=generate_id(),
+        status=BookingStatus.pending,
+        created_at=datetime.now(UTC).replace(tzinfo=None),
+        **payload.model_dump(),
+    )
     session.add(booking)
     session.commit()
     session.refresh(booking)
@@ -156,11 +188,13 @@ def update_booking(session: Session, booking_id: str, payload: BookingUpdate, ac
     updates = payload.model_dump(exclude_unset=True)
     if not updates:
         raise BadRequestError("No fields to update.")
-    if "resource_id" in updates:
-        _ensure_resource_exists(session, str(updates["resource_id"]))
+    next_resource_id = str(updates.get("resource_id", booking.resource_id))
+    resource = _ensure_resource_exists(session, next_resource_id)
     new_start = updates.get("start_time", booking.start_time)
     new_end = updates.get("end_time", booking.end_time)
     _validate_booking_window(new_start, new_end)
+    next_attendees = updates.get("attendees_count", booking.attendees_count)
+    _validate_attendees_capacity(resource, next_attendees)
     if booking.status == BookingStatus.approved:
         _assert_no_approved_conflict(
             session,
@@ -171,6 +205,7 @@ def update_booking(session: Session, booking_id: str, payload: BookingUpdate, ac
         )
     for key, value in updates.items():
         setattr(booking, key, value)
+    booking.updated_at = datetime.now(UTC).replace(tzinfo=None)
     session.add(booking)
     session.commit()
     session.refresh(booking)
@@ -185,7 +220,10 @@ def approve_booking(session: Session, booking_id: str, actor: User) -> Booking:
     if booking.status != BookingStatus.pending:
         raise BadRequestError("Only pending bookings can be approved")
     _assert_no_approved_conflict(session, booking.resource_id, booking.start_time, booking.end_time, booking.id)
+    _record_status_history(session, booking, BookingStatus.approved, actor.id)
     booking.status = BookingStatus.approved
+    booking.updated_at = datetime.now(UTC).replace(tzinfo=None)
+    booking.cancelled_at = None
     session.add(booking)
     session.commit()
     session.refresh(booking)
@@ -195,7 +233,11 @@ def approve_booking(session: Session, booking_id: str, actor: User) -> Booking:
 def cancel_booking(session: Session, booking_id: str, actor: User) -> Booking:
     booking = _ensure_booking_exists(session, booking_id)
     _ensure_employee_owns_booking(actor, booking)
+    _record_status_history(session, booking, BookingStatus.cancelled, actor.id)
     booking.status = BookingStatus.cancelled
+    now = datetime.now(UTC).replace(tzinfo=None)
+    booking.cancelled_at = now
+    booking.updated_at = now
     session.add(booking)
     session.commit()
     session.refresh(booking)

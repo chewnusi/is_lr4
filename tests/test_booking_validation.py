@@ -46,3 +46,11 @@ def test_invalid_time_format_rejected(client):
         },
     )
     assert response.status_code == 422
+
+
+def test_attendees_count_cannot_exceed_capacity(client, booking_payload):
+    rid = _resource(client)
+    booking_payload["resource_id"] = rid
+    booking_payload["attendees_count"] = 5
+    response = client.post("/bookings?user_id=demo-employee", json=booking_payload)
+    assert response.status_code == 400

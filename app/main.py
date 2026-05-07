@@ -8,7 +8,7 @@ from sqlmodel import Session, select
 from app.config import settings
 from app.db import engine, init_db
 from app.models_db import User, UserRole
-from app.routers import bookings, resources, users
+from app.routers import analytics, bookings, recommendations, resources, users
 from app.seed import seed_if_empty
 from app import ui_routes
 from app.template_env import APP_DIR
@@ -23,6 +23,8 @@ app.include_router(ui_routes.router)
 app.include_router(resources.router)
 app.include_router(bookings.router)
 app.include_router(users.router)
+app.include_router(analytics.router)
+app.include_router(recommendations.router)
 
 
 def _seed_default_users() -> None:
